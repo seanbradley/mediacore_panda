@@ -1,0 +1,54 @@
+<!--! This file is a part of MediaCore, Copyright 2009 Simple Station Inc.
+
+	MediaCore is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	MediaCore is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+<xi:include href="/admin/master.html" />
+<xi:include href="/admin/settings/master.html" />
+<head>
+	<title>Panda Transcoding Settings</title>
+	<link href="${h.url_for('/admin/styles/forms.css')}" media="screen" rel="stylesheet" type="text/css" />
+</head>
+<body>
+	<div class="box">
+		<div class="box-head">
+			<h1>Panda Transcoding Settings</h1>
+			<span class="box-head-sec">${h.doc_link('admin/settings', 'panda')}</span>
+		</div>
+		<div class="form box-content" py:with="profiles = form_values['profiles']; cloud = form_values['cloud']">
+			<div class="form_label"><label>Panda S3 Integration:</label></div>
+			<p class="form_field" py:if="cloud">MediaCore has detected that your currently selected Panda cloud (named "${cloud['name']}") is tied to your S3 bucket named "${cloud['s3_videos_bucket']}". If you intend to use CloudFront to serve these files, please ensure that the CloudFront domains you enter below refer to this S3 bucket.</p>
+			<p class="form_field" py:if="not cloud">Based on the Panda account details specified below, MediaCore could not connect to Panda to determine the name of the S3 bucket tied to your Panda account.</p>
+		</div>
+		<div class="form box-content" py:with="profiles = form_values['profiles']">
+			<div class="form_label"><label>Available encodings:</label></div>
+			<table class="form_field" py:if="profiles is not None and profiles">
+				<thead><tr><td>Name</td><td>Description</td></tr></thead>
+				<tbody>
+					<tr py:for="p in profiles"><td>${p['name']}</td><td>${p['title']} ${p['width']}x${p['height']}</td></tr>
+				</tbody>
+			</table>
+			<p class="form_field" py:if="profiles is not None and not profiles">The Panda account specified below does not have any encoding profiles configured. You can create an encoding profile by visiting <a href="http://www.pandastream.com/encoders">the panda admin page</a> and clicking the 'profiles' button for your chosen 'cloud'.</p>
+			<p class="form_field" py:if="profiles is None">Based on the Panda account details specified below, MediaCore could not connect to Panda to determine available encodings. Please note that until valid account details are provided, MediaCore will be unable to enable transcoding via Panda.</p>
+		</div>
+		<form py:replace="XML(form(form_values))" />
+	</div>
+</body>
+</html>
+

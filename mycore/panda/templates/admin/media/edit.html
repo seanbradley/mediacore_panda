@@ -1,0 +1,14 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      py:strip="">
+	<!--! Include the panda status box after the files box! -->
+	<div py:match="div[@id='media-files-box']" py:strip="True">
+		<div py:attrs="select('@*')">
+			${select('*|text()')}
+		</div>
+		<xi:include href="./panda-status-box.html" py:with="include_javascript = True"/>
+	</div>
+</html>
