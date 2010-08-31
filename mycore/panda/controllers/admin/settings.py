@@ -53,6 +53,6 @@ class SettingsController(BaseSettingsController):
         # Ensure that the selected cloudfront streaming server is in the known
         # RTMP list.
         if 'amazon.panda_amazon_cloudfront_streaming_domain' in kwargs:
-            new_rtmp_url = 'rtmp://' + kwargs['amazon.panda_amazon_cloudfront_streaming_domain']
+            new_rtmp_url = 'rtmp://' + kwargs['amazon.panda_amazon_cloudfront_streaming_domain'].rstrip('/') + '/cfx/st'
             ms = fetch_and_create_multi_setting(u'rtmp_server', new_rtmp_url)
         return self._save(panda_form, 'panda', values=kwargs)
