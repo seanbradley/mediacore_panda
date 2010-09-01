@@ -26,13 +26,13 @@ class SettingsController(BaseSettingsController):
         kwargs['profiles'] = profiles
         kwargs['cloud'] = cloud
 
-        action = url_for(controller='/admin/settings', action='panda_save')
+        action = url_for(controller='/panda/admin/settings', action='panda_save')
         return self._display(panda_form, values=kwargs, action=action)
 
     @expose()
     @validate(panda_form, error_handler=panda)
     def panda_save(self, **kwargs):
-        """Save :class:`~mediacore.forms.admin.settings.PandaForm`."""
+        """Save :class:`~mycore.panda.forms.admin.settings.PandaForm`."""
         # Only allow panda_transcoding_enabled to be set to 'true' if the
         # account details are verified to work.
         trans = kwargs.get('panda_transcoding_enabled', 'false')

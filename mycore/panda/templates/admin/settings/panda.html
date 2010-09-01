@@ -47,7 +47,7 @@
 			<p class="form_field" py:if="profiles is not None and not profiles">The Panda account specified below does not have any encoding profiles configured. You can create an encoding profile by visiting <a href="http://www.pandastream.com/encoders">the panda admin page</a> and clicking the 'profiles' button for your chosen 'cloud'.</p>
 			<p class="form_field" py:if="profiles is None">Based on the Panda account details specified below, MediaCore could not connect to Panda to determine available encodings. Please note that until valid account details are provided, MediaCore will be unable to enable transcoding via Panda.</p>
 		</div>
-		<form py:replace="XML(form(form_values))" />
+		<form py:replace="XML(form(form_values, action=form_action))" />
 	</div>
 </body>
 </html>
