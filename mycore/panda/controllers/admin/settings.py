@@ -1,5 +1,7 @@
 import logging
 
+from repoze.what.predicates import has_permission
+
 from mediacore.lib.base import BaseSettingsController
 from mediacore.lib.decorators import expose, validate
 from mediacore.lib.helpers import url_for
@@ -13,6 +15,8 @@ log = logging.getLogger(__name__)
 panda_form = PandaForm()
 
 class SettingsController(BaseSettingsController):
+    allow_only = has_permission('admin')
+
     @expose('panda/admin/settings/panda.html')
     def panda(self, **kwargs):
         profiles = None
