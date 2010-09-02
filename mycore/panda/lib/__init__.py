@@ -484,6 +484,9 @@ class PandaHelper(object):
         new_media_file.height = d['height']
         new_media_file.width = d['width']
         new_media_file.size = d['file_size']
+        ba = d.get('audio_bitrate', None) or 0
+        bv = d.get('video_bitrate', None) or 0
+        new_media_file.bitrate = (ba + bv) or None
         new_media_file.display_name = display_name
         return new_media_file
 
