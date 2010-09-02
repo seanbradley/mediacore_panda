@@ -48,8 +48,6 @@ class MediaController(BaseController):
 
     @expose()
     def panda_update(self, media_id=None, file_id=None, video_id=None):
-        # TODO: remember, the panda server can't access this method. Urhg. Port it to a different controller?
-
         if file_id and video_id:
             media_file = fetch_row(MediaFile, file_id)
             media_files = [media_file]
