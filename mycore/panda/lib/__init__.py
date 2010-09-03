@@ -478,6 +478,11 @@ class PandaHelper(object):
 
     def _media_file_from_encoding_or_video_dict(self, d, media, display_name, base_url):
         from mediacore.lib.mediafiles import add_new_media_file
+        extname = d['extname']
+        if extname == '.ts':
+            # Panda reports multi-bitrate http streaming encodings as .ts file
+            # but the associated playlist is the only thing ipods, etc, can read.
+            extname = '.m3u8'
         new_filename = "%s%s" % (d['id'], d['extname'])
         url = base_url + new_filename
         new_media_file = add_new_media_file(media, url=url, already_encoded=True)
