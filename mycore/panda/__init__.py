@@ -58,7 +58,8 @@ def panda_transcode(media_file):
             controller='/panda/admin/media',
             action='panda_update',
             file_id=media_file.id,
-            video_id='$id',
+# For some reason, the $ on this next line always gets urlencoded, and panda ignores it.
+#            video_id='$id',
             qualified=True
         )
         ph = PandaHelper()

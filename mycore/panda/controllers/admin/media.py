@@ -48,7 +48,7 @@ class MediaController(BaseController):
 
     @expose()
     def panda_update(self, media_id=None, file_id=None, video_id=None):
-        if file_id and video_id:
+        if file_id:
             media_file = fetch_row(MediaFile, file_id)
             media_files = [media_file]
         elif media_id:
@@ -57,6 +57,6 @@ class MediaController(BaseController):
 
         ph = PandaHelper()
         for media_file in media_files:
-            ph.video_status_update(media_file)
+            ph.video_status_update(media_file, video_id)
 
         redirect(controller='/admin/media', action='edit', id=media_id)
