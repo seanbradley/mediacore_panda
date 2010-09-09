@@ -51,7 +51,7 @@ def s3_base_urls():
     ph = PandaHelper()
     s3_url_http = 'http://s3.amazonaws.com/%s/' % ph.client.get_cloud()['s3_videos_bucket']
     cf_url_http = 'http://%s/' % app_globals.settings['panda_amazon_cloudfront_download_domain'].strip(' /')
-    cf_url_rtmp = 'rtmp://%s/cfx/st' % app_globals.settings['panda_amazon_cloudfront_streaming_domain'].strip(' /')
+    cf_url_rtmp = 'rtmp://%s/cfx/st/' % app_globals.settings['panda_amazon_cloudfront_streaming_domain'].strip(' /')
     urls = [
         (s3_url_http, 'S3 - HTTP'),
         (cf_url_http, 'CF - HTTP'),
