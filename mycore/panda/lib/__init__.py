@@ -3,10 +3,13 @@ import urllib
 import cPickle
 import panda
 
+from socket import gaierror
 from paste.deploy.converters import asbool
 from simplejson import dumps, loads
 
+from mediacore.lib.helpers import merge_dicts
 from mediacore.lib.compat import all
+from mediacore.lib.storage import add_new_media_file, UnsuitableEngineError, StorageURI
 
 import logging
 log = logging.getLogger(__name__)
@@ -22,7 +25,14 @@ POST = 'POST'
 DELETE = 'DELETE'
 GET = 'GET'
 
-ENCODING_COMPLETE = 'encoding_complete'
+META_VIDEO_PREFIX = "panda_video_"
+PANDA_URL_PREFIX = "panda:"
+TYPES = {
+    'video': "video_id",
+    'encoding': "encoding_id",
+    'file': "file_name",
+    'url': "url",
+}
 
 # TODO: Use these lists to verify that all received data has a valid structure.
 cloud_keys = [
@@ -42,44 +52,7 @@ encoding_keys = [
     'id', 'extname', 'created_at', 'updated_at', 'height', 'width', # Common
     'file_size', 'status', # Video/Encoding Specific
     'encoding_progress', 'encoding_time', 'started_encoding_at', 'profile_id', 'video_id', # Encoding Specific
-    'error_log', # Unofficial attribute, added by PandaClient
 ]
-
-def s3_base_urls():
-    """Return fully qualified (including protocol) URIs for the base path of all specified Amazon distribution options."""
-    from pylons import app_globals
-    ph = PandaHelper()
-    s3_url_http = 'http://s3.amazonaws.com/%s/' % ph.client.get_cloud()['s3_videos_bucket']
-    cf_url_http = 'http://%s/' % app_globals.settings['panda_amazon_cloudfront_download_domain'].strip(' /')
-    cf_url_rtmp = 'rtmp://%s/cfx/st/' % app_globals.settings['panda_amazon_cloudfront_streaming_domain'].strip(' /')
-    urls = [
-        (s3_url_http, 'S3 - HTTP'),
-        (cf_url_http, 'CF - HTTP'),
-        (cf_url_rtmp, 'CF - RTMP'),
-    ]
-    min_length = len('xxxp:///')
-    # only return the cloudfront urls if they have some content
-    return [(x, y) for x, y in urls if len(x) > min_length]
-
-class memoize(object):
-    def __init__(self, fn):
-        self.fn = fn
-        self.cache = {}
-        doc = "This method is memoized. Use the update_cache=True kwarg to avoid stale data."
-        if fn.__doc__:
-            self.__doc__ = "\n".join(fn.__doc__, doc)
-        else:
-            self.__doc__ = doc
-
-    def __call__(self, *args, **kwargs):
-        update_cache = kwargs.pop('update_cache', False)
-        key = cPickle.dumps((args, sorted(kwargs.iteritems())))
-        if update_cache or key not in self.cache:
-            self.cache[key] = self.fn(*args, **kwargs)
-        return self.cache[key]
-
-    def clear_cache(self):
-        self.cache = {}
 
 class PandaException(Exception):
     pass
@@ -92,36 +65,99 @@ def log_request(request_url, method, query_string_data, body_data, response_data
     log.debug("Request Body Data: %r", body_data)
     log.debug("Received response: %r", response_data)
 
+from pylons.i18n import N_ as _
+from mediacore.forms import ListFieldSet, ResetButton, SubmitButton, TextField
+from mediacore.forms.admin.storage import StorageForm
+from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boolean_radiobuttonlist
+
+class PandaForm(StorageForm):
+    template = 'mycore.panda.templates.admin.storage'
+    fields = StorageForm.fields + [
+        boolean_radiobuttonlist('transcoding_enabled', label_text=_('Automatically transcode uploaded videos using Panda')),
+        ListFieldSet('panda', suppress_label=True, legend=_('Panda Account Details:'), css_classes=['details_fieldset'], children=[
+            TextField('cloud_id', maxlength=255, label_text=_('Cloud ID')),
+            TextField('access_key', maxlength=255, label_text=_('Access Key')),
+            TextField('secret_key', maxlength=255, label_text=_('Secret Key')),
+        ]),
+        TextField('encoding_profiles', label_text=_('Encodings to use (comma-separated list of encoding names)')),
+        ListFieldSet('amazon', suppress_label=True, legend=_('Amazon CloudFront Domains (e.g. a1b2c3d4e5f6.cloudfront.net):'), css_classes=['details_fieldset'], children=[
+            TextField('amazon_cloudfront_download_domain', maxlength=255, label_text=_('CloudFront HTTP')),
+            TextField('amazon_cloudfront_streaming_domain', maxlength=255, label_text=_('CloudFront RTMP')),
+        ]),
+    ] + StorageForm.buttons
+
+    def display(self, value, engine, **kwargs):
+        kwargs['engine'] = engine
+        try:
+            kwargs['profiles'] = engine.panda_helper.client.get_profiles()
+            kwargs['cloud'] = engine.panda_helper.client.get_cloud()
+        except PandaException, e:
+            kwargs['profiles'] = None
+            kwargs['cloud'] = None
+
+        merge_dicts(value, self._nest_values_for_form(engine._data))
+
+        # kwargs are vars for the template, value is a dict of values for the form.
+        return StorageForm.display(self, value, **kwargs)
+
+    def save_engine_params(self, engine, **kwargs):
+        """Map validated field values to engine data.
+
+        Since form widgets may be nested or named differently than the keys
+        in the :attr:`mediacore.lib.storage.StorageEngine._data` dict, it is
+        necessary to manually map field values to the data dictionary.
+
+        :type engine: :class:`mediacore.lib.storage.StorageEngine` subclass
+        :param engine: An instance of the storage engine implementation.
+        :param \*\*kwargs: Validated and filtered form values.
+        :raises formencode.Invalid: If some post-validation error is detected
+            in the user input. This will trigger the same error handling
+            behaviour as with the @validate decorator.
+
+        """
+        data = self._flatten_values_from_form(engine._data, kwargs)
+        if data['transcoding_enabled']:
+            # Only set transcoding_enabled to True if the user has selected it
+            # AND the specified data works for connecting Panda's servers.
+            data['transcoding_enabled'] = False
+            if all((data[k] for k in ['cloud_id', 'access_key', 'secret_key'])):
+                try:
+                    # Attempt to connect...
+                    ph = PandaHelper(
+                        cloud_id = data['cloud_id'],
+                        access_key = data['access_key'],
+                        secret_key = data['secret_key']
+                    )
+                    ph.client.get_cloud()
+                    # If we got to this point, the account works.
+                    data['transcoding_enabled'] = True
+                except PandaException, e:
+                    pass
+        engine._data = data
+
 class PandaClient(object):
     def __init__(self, cloud_id, access_key, secret_key):
-        if not all((cloud_id, access_key, secret_key)):
-            raise PandaException('Cannot initialize PandaClient object if any arguments are None')
         self.conn = panda.Panda(cloud_id, access_key, secret_key)
-
-        # Avoid making a whole bunch of identical requests.
-        self._get_json = memoize(self._get_json)
-
-    def _add_extra_fields(self, url, method, obj):
-        """Add extra fields to every dict that we generate.
-
-        For instance, encoding dicts get an 'error_log' url associated, here.
-        """
-        if isinstance(obj, list):
-            for o in obj:
-                self._add_extra_fields(url, method, o)
-            return
-
-        if url.startswith('/encoding') and method in (GET, POST):
-            # If there was an error log for this encoding, it would be at this URL
-            obj['error_log'] = "%s%s.log" % (s3_base_urls()[0][0], obj['id'])
+        self.json_cache = {}
 
     def _get_json(self, url, query_string_data={}):
-        json = self.conn.get(request_path=url, params=query_string_data)
+        # This function is memoized with a custom hashing algorithm for its arguments.
+        hash_tuple = url, ((k, query_string_data[k]) for k in sorted(query_string_data.keys()))
+        if hash_tuple in self.json_cache:
+            return self.json_cache[hash_tuple]
+
+        try:
+            json = self.conn.get(request_path=url, params=query_string_data)
+        except gaierror, e:
+            # Catch socket errors and re-raise them as Panda errors.
+            raise PandaException(e)
+
         obj = loads(json)
         log_request(url, GET, query_string_data, None, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
-        self._add_extra_fields(url, GET, obj)
+
+        self.json_cache[hash_tuple] = obj
         return obj
 
     def _post_json(self, url, post_data={}):
@@ -130,7 +166,6 @@ class PandaClient(object):
         log_request(url, POST, None, post_data, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
-        self._add_extra_fields(url, POST, obj)
         return obj
 
     def _put_json(self, url, put_data={}):
@@ -139,7 +174,6 @@ class PandaClient(object):
         log_request(url, PUT, None, put_data, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
-        self._add_extra_fields(url, PUT, obj)
         return obj
 
     def _delete_json(self, url, query_string_data={}):
@@ -388,22 +422,9 @@ class PandaClient(object):
         return self._post_json('/encodings.json', data)
 
 
-_meta_video_prefix = "panda_video_"
-_meta_encoding_prefix = "panda_encoding_"
-
 class PandaHelper(object):
-    def __init__(self, cloud_id=None, access_key=None, secret_key=None, ignore_enabled=False):
-        from pylons import app_globals
-
-        if not ignore_enabled:
-            if not asbool(app_globals.settings['panda_transcoding_enabled']):
-                raise PandaException('Panda transcoding is not enabled in settings. Use ignore_enabled kwarg to bypass this restriction.')
-
-        self.client = PandaClient(
-            cloud_id or app_globals.settings['panda_cloud_id'],
-            access_key or app_globals.settings['panda_access_key'],
-            secret_key or app_globals.settings['panda_secret_key'],
-        )
+    def __init__(self, cloud_id, access_key, secret_key):
+        self.client = PandaClient(cloud_id, access_key, secret_key)
 
     def profile_names_to_ids(self, names):
         profiles = self.client.get_profiles()
@@ -428,16 +449,10 @@ class PandaHelper(object):
             out[profile['id']] = profile['name']
         return out
 
-    def associate_encoding_id(self, media_file, encoding_id, state=None):
-        # Create a meta_key for this MediaCore::MediaFile -> Panda::Encoding pairing.
-        # This is sort of a perversion of the meta table, but hey, it works.
-        meta_key = "%s%s" % (_meta_encoding_prefix, encoding_id)
-        media_file.meta[meta_key] = state
-
     def associate_video_id(self, media_file, video_id, state=None):
         # Create a meta_key for this MediaCore::MediaFile -> Panda::Video pairing.
         # This is sort of a perversion of the meta table, but hey, it works.
-        meta_key = "%s%s" % (_meta_video_prefix, video_id)
+        meta_key = "%s%s" % (META_VIDEO_PREFIX, video_id)
         media_file.meta[meta_key] = state
 
     def disassociate_video_id(self, media_file, video_id):
@@ -445,45 +460,33 @@ class PandaHelper(object):
         from mediacore.model.media import MediaFilesMeta
         # Create a meta_key for this MediaCore::MediaFile -> Panda::Video pairing.
         # This is sort of a perversion of the meta table, but hey, it works.
-        meta_key = "%s%s" % (_meta_video_prefix, video_id)
+        meta_key = "%s%s" % (META_VIDEO_PREFIX, video_id)
         mfm = DBSession.query(MediaFilesMeta)\
                 .filter(MediaFilesMeta.media_files_id==media_file.id)\
                 .filter(MediaFilesMeta.key==meta_key)
         for x in mfm:
             DBSession.delete(x)
 
-    def list_associated_video_ids(self, media_file, include_completed=False):
+    def list_associated_video_ids(self, media_file):
         # This method returns a list, for futureproofing and testing, but the
         # current logic basically ensures that the list will have at most one element.
         ids = []
-        offset = len(_meta_video_prefix)
+        offset = len(META_VIDEO_PREFIX)
         for key, value in media_file.meta.iteritems():
-            if key.startswith(_meta_video_prefix) \
-            and (include_completed or value != ENCODING_COMPLETE):
+            if key.startswith(META_VIDEO_PREFIX):
                 ids.append(key[offset:])
         return ids
 
-    def list_associated_encoding_ids(self, media_file, include_completed=False):
-        # This method returns a list, for futureproofing and testing, but the
-        # current logic basically ensures that the list will have at most one element.
-        ids = []
-        offset = len(_meta_encoding_prefix)
-        for key, value in media_file.meta.iteritems():
-            if key.startswith(_meta_encoding_prefix) \
-            and (include_completed or value != ENCODING_COMPLETE):
-                ids.append(key[offset:])
-        return ids
-
-    def get_associated_video_dicts(self, media_file, include_completed=False):
-        ids = self.list_associated_video_ids(media_file, include_completed)
+    def get_associated_video_dicts(self, media_file):
+        ids = self.list_associated_video_ids(media_file)
         video_dicts = {}
         for id in ids:
             video = self.client.get_video(id)
             video_dicts[video['id']] = video
         return video_dicts
 
-    def get_associated_encoding_dicts(self, media_file, include_completed=False):
-        ids = self.list_associated_video_ids(media_file, include_completed)
+    def get_associated_encoding_dicts(self, media_file):
+        ids = self.list_associated_video_ids(media_file)
         encoding_dicts = {}
         for id in ids:
             v_encodings = self.client.get_encodings(video_id=id)
@@ -491,18 +494,18 @@ class PandaHelper(object):
                 encoding_dicts[encoding['id']] = encoding
         return encoding_dicts
 
-    def get_all_associated_encoding_dicts(self, media_files, include_completed=False):
+    def get_all_associated_encoding_dicts(self, media_files):
         encoding_dicts = {}
         for file in media_files:
-            dicts = self.get_associated_encoding_dicts(file, include_completed)
+            dicts = self.get_associated_encoding_dicts(file)
             if dicts:
                 encoding_dicts[file.id] = dicts
         return encoding_dicts
 
-    def get_all_associated_video_dicts(self, media_files, include_completed=False):
+    def get_all_associated_video_dicts(self, media_files):
         video_dicts = {}
         for file in media_files:
-            dicts = self.get_associated_video_dicts(file, include_completed)
+            dicts = self.get_associated_video_dicts(file)
             if dicts:
                 video_dicts[file.id] = dicts
         return video_dicts
@@ -530,34 +533,11 @@ class PandaHelper(object):
         else:
             raise PandaException('Could not delete specified encoding.', encoding_id)
 
-    def transcode_media_file(self, media_file, profile_ids=None, state_update_url=None):
-        from pylons import app_globals
-        from mediacore.lib.helpers import url_for
-        download_url = media_file.link_url(qualified=True, static=True)
-        if not profile_ids:
-            profile_names = [x.strip() for x in app_globals.settings['panda_encoding_profiles'].split(',')]
-            profile_ids = self.profile_names_to_ids(profile_names)
+    def transcode_media_file(self, media_file, profile_ids, state_update_url=None):
+        uris = [u.file_uri for u in media_file.get_uris() if u.scheme == 'http']
+        download_url = uris[0]
         transcode_details = self.client.transcode_file(download_url, profile_ids, state_update_url)
         self.associate_video_id(media_file, transcode_details['id'])
-
-    def _media_file_from_encoding_or_video_dict(self, d, media, display_name, base_url):
-        from mediacore.lib.mediafiles import add_new_media_file
-        extname = d['extname']
-        if extname == '.ts':
-            # Panda reports multi-bitrate http streaming encodings as .ts file
-            # but the associated playlist is the only thing ipods, etc, can read.
-            extname = '.m3u8'
-        new_filename = "%s%s" % (d['id'], d['extname'])
-        url = base_url + new_filename
-        new_media_file = add_new_media_file(media, url=url, already_encoded=True)
-        new_media_file.height = d['height']
-        new_media_file.width = d['width']
-        new_media_file.size = d['file_size']
-        ba = d.get('audio_bitrate', None) or 0
-        bv = d.get('video_bitrate', None) or 0
-        new_media_file.max_bitrate = (ba + bv) or None
-        new_media_file.display_name = display_name
-        return new_media_file
 
     def video_status_update(self, media_file, video_id=None):
         # If no ID is specified, update all associated videos!
@@ -569,34 +549,225 @@ class PandaHelper(object):
 
         v = self.client.get_video(video_id)
         encodings = self.client.get_encodings(video_id=video_id)
+
         # Only proceed if the video has completed all encoding steps successfully.
-        if v['status'] != 'success':
-            return
         if any(e['status'] != 'success' for e in encodings):
             return
-        # TODO: Figure out if the second check is actually necessary.
-        #       What about the case where a new encoding item is added to a
-        #       previously 'success'ful video.
 
         # Set the media's duration based on the video file.
         if v['duration'] and not media_file.media.duration:
             media_file.media.duration = v['duration']/1000
 
-        original_filename = os.path.splitext(media_file.display_name)[0].strip()
-        # For each successful encoding (and the original file), create a new MediaFile
-        for base_url, url_type in s3_base_urls():
-            display_name = "(%s) %s%s" % (url_type, original_filename, v['extname'])
-            new_mf = self._media_file_from_encoding_or_video_dict(v, media_file.media, display_name, base_url)
-            self.associate_video_id(new_mf, v['id'], ENCODING_COMPLETE)
+        profiles = self.get_profile_ids_names()
 
-            for e in encodings:
-                profile = self.client.get_profile(e['profile_id'])
-                display_name = "(%s - %s) %s%s" % (url_type, profile['name'], original_filename, e['extname'])
-                new_mf = self._media_file_from_encoding_or_video_dict(e, media_file.media, display_name, base_url)
-                self.associate_encoding_id(new_mf, e['id'], ENCODING_COMPLETE)
+        # For each successful encoding (and the original file), create a new MediaFile
+        v['display_name'] = "(%s) %s%s" % ('original', media_file.display_name, v['extname'])
+        url = PANDA_URL_PREFIX + dumps(v)
+        new_mf = add_new_media_file(media_file.media, url=url)
+        for e in encodings:
+            # Panda reports multi-bitrate http streaming encodings as .ts file
+            # but the associated playlist is the only thing ipods, etc, can read.
+            if e['extname'] == '.ts':
+                e['extname'] = '.m3u8'
+
+            e['display_name'] = "(%s) %s%s" % (profiles[e['profile_id']], media_file.display_name, e['extname'])
+            url = PANDA_URL_PREFIX + dumps(e)
+            new_mf = add_new_media_file(media_file.media, url=url)
 
         self.disassociate_video_id(media_file, v['id'])
         # TODO: Now delete the exisitng media_file?
-        media_file.height = v['height']
-        media_file.width = v['width']
-        media_file.size = v['file_size']
+
+from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, RemoteURLStorage
+from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
+
+class PandaStorage(RemoteURLStorage, LocalFileStorage):
+
+    engine_type = u'PandaStorage'
+    """A uniquely identifying unicode string for the StorageEngine."""
+
+    settings_form_class = PandaForm
+    """Your :class:`mediacore.forms.Form` class for changing :attr:`_data`."""
+
+    _default_data = {
+        'access_key': u'',
+        'secret_key': u'',
+        'transcoding_enabled': False,
+        'cloud_id': u'',
+        'encoding_profiles': u'h264',
+        'amazon_cloudfront_download_domain': u'',
+        'amazon_cloudfront_streaming_domain': u'',
+    }
+
+    _panda_helper = None
+
+    @property
+    def base_urls(self):
+        # TODO: need to init ph with proper credentials.
+        return [
+            ('http', 'http://s3.amazonaws.com/%s/' %
+                self.panda_helper.client.get_cloud()['s3_videos_bucket']),
+
+            ('http', 'http://%s/' %
+                self._data['amazon_cloudfront_download_domain'].strip(' /')),
+
+            ('rtmp', 'rtmp://%s/cfx/st/' %
+                self._data['amazon_cloudfront_streaming_domain'].strip(' /')),
+        ]
+
+    @property
+    def panda_helper(self):
+        if self._panda_helper is None:
+            # TODO: initialize this with prope credentials
+            self._panda_helper = PandaHelper(
+                cloud_id = self._data['cloud_id'],
+                access_key = self._data['access_key'],
+                secret_key = self._data['secret_key']
+            )
+        return self._panda_helper
+
+    def parse(self, file=None, url=None):
+        """Return metadata for the given file or raise an error.
+
+        :type file: :class:`cgi.FieldStorage` or None
+        :param file: A freshly uploaded file object.
+        :type url: unicode or None
+        :param url: A remote URL string.
+        :rtype: dict
+        :returns: Any extracted metadata.
+        :raises UnsuitableEngineError: If file information cannot be parsed.
+
+        """
+        assert (file, url) != (None, None), "Must provide a file or a url."
+        if not self._data['transcoding_enabled']:
+            raise UnsuitableEngineError('Panda Transcoding with this Storage Engine is currently disabled.')
+
+        if url and url.startswith(PANDA_URL_PREFIX):
+            offset = len(PANDA_URL_PREFIX)
+            # 'd' is the dict representing a Panda encoding or video
+            # with an extra key: 'display_name'
+            d = loads(url[offset:])
+
+            # MediaCore uses extensions without prepended .
+            ext = d['extname'].lstrip('.').lower()
+
+            # XXX: Panda doesn't actually populate these fields yet.
+            ba = d.get('audio_bitrate', None) or 0
+            bv = d.get('video_bitrate', None) or 0
+            bitrate = (ba + bv) or None
+
+            return {
+                'panda_id': d['id'],
+                'panda_type': TYPES['video'],
+                'panda_ext': ext,
+                'container': guess_container_format(ext),
+                'display_name': d['display_name'],
+                'type': VIDEO, # only video files get panda encoded, so it's video Q.E.D.
+                'height': d['height'],
+                'width': d['width'],
+                'size': d['file_size'],
+                'bitrate': bitrate,
+                'duration': d['duration'],
+                'thumbnail_url': "%s%s.%s_thumb.jpg" % (self.base_urls[0][1], d['id'], ext),
+            }
+        elif url:
+            return RemoteURLStorage.parse(self, url=url)
+        elif file:
+            return LocalFileStorage.parse(self, file=file)
+
+    def store(self, media_file, file=None, url=None, meta=None):
+        """Store the given file or URL and return a unique identifier for it.
+
+        :type file: :class:`cgi.FieldStorage` or None
+        :param file: A freshly uploaded file object.
+        :type url: unicode or None
+        :param url: A remote URL string.
+        :type media_file: :class:`~mediacore.model.media.MediaFile`
+        :param media_file: The associated media file object.
+        :type meta: dict
+        :param meta: The metadata returned by :meth:`parse`.
+        :rtype: unicode or None
+        :returns: The unique ID string. Return None if not generating it here.
+
+        """
+        assert (file, url) != (None, None), "Must provide a file or a url."
+        assert media_file.id != None, "Media file must have an ID. Try flushing the DB Session."
+
+        # Try to generate an ID based on the video_id or encoding_id
+        # These IDs are available if the file is part of a transcoding job.
+        # PandaStorage will handle these IDs directly
+        if meta.get('panda_type', None) in (TYPES['video'], TYPES['encoding']):
+            id = dict(
+                type = meta['panda_type'],
+                id = meta['panda_id'],
+                ext = meta['panda_ext'],
+            )
+        else:
+            # Otherwise, use the basic storage engines to handle this file.
+            if file:
+                # XXX: LocalFileStorage allows for the StorgeEngine to override the
+                #      default file save directory. PandaStorage ignores this
+                #      override, and is thus not necessarily compatible with the
+                #      user's default LocalFileStorage instance.
+                file_name = LocalFileStorage.store(self, media_file, file=file, meta=meta)
+                id = dict(
+                    type = TYPES['file'],
+                    id = file_name,
+                )
+            elif url:
+                # XXX: Notice that we don't call RemoteURLStorage.store() here.
+                #      RemoteURLStorage sets the unique_id in the meta dict
+                #      inside RemoteURLStorage.parse().
+                id = dict(
+                    type = TYPES['url'],
+                    id = meta['unique_id'],
+                )
+
+            if meta['type'] == VIDEO:
+                from mediacore.lib.helpers import url_for
+                state_update_url = url_for(
+                    controller='/panda/admin/media',
+                    action='panda_update',
+                    file_id=media_file.id,
+                    qualified=True
+                )
+                profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
+                profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
+                fake_ids(media_file, dumps(id), # FIXME: this is probably a BAD leaky abstraction.
+                         self.panda_helper.transcode_media_file,
+                         media_file, profile_ids, state_update_url=state_update_url)
+
+        return dumps(id)
+
+    def get_uris(self, media_file):
+        """Return a list of URIs from which the stored file can be accessed.
+
+        :type media_file: :class:`~mediacore.model.media.MediaFile`
+        :param media_file: The associated media file object.
+        :rtype: list
+        :returns: All :class:`StorageURI` tuples for this file.
+
+        """
+        id = loads(media_file.unique_id)
+
+        if id['type'] == TYPES['file']:
+            return fake_ids(media_file, id['id'],
+                            LocalFileStorage.get_uris, self, media_file)
+
+        elif id['type'] == TYPES['url']:
+            return fake_ids(media_file, id['id'],
+                            RemoteURLStorage.get_uris, self, media_file)
+
+        elif id['type'] in (TYPES['video'], TYPES['encoding']):
+            return [
+                StorageURI(media_file, base[0], "%s%s.%s" % (base[1], id['id'], id['ext']))
+                for base in self.base_urls
+            ]
+
+FileStorageEngine.register(PandaStorage)
+
+def fake_ids(mf, temp_id, func, *args, **kwargs):
+    orig_id = mf.unique_id
+    mf.unique_id = temp_id
+    result = func(*args, **kwargs)
+    mf.unique_id = orig_id
+    return result
