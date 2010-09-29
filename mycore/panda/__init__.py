@@ -6,7 +6,8 @@ from pylons import app_globals
 
 from mediacore.plugin import events
 from mediacore.plugin.events import observes
-from mycore.panda.lib import PandaHelper, PandaException, PandaStorage
+from mycore.panda.lib import PandaHelper, PandaException
+from mycore.panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
 
