@@ -452,8 +452,6 @@ class PandaHelper(object):
         self.disassociate_video_id(media_file, e['video_id'])
 
     def retry_transcode(self, media_file, encoding_id):
-        encodings = self.get_associated_encoding_dicts(media_file)
-
         # Ensure that the encoding to retry belongs to the given media file.
         e = self.client.get_encoding(encoding_id)
         video_ids = self.list_associated_video_ids(media_file)
