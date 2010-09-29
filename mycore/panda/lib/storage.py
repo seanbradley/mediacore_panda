@@ -96,7 +96,7 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
                 'size': d['file_size'],
                 'bitrate': bitrate,
                 'duration': d['duration'],
-                'thumbnail_url': "%s%s.%s_thumb.jpg" % (self.base_urls[0][1], d['id'], ext),
+                'thumbnail_url': "%s%s_1.jpg" % (self.base_urls[0][1], d['id']),
             }
         elif url:
             return RemoteURLStorage.parse(self, url=url)
