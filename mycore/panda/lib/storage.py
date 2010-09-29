@@ -15,6 +15,8 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
     settings_form_class = PandaForm
     """Your :class:`mediacore.forms.Form` class for changing :attr:`_data`."""
 
+    second_to = []
+
     _default_data = {
         'access_key': u'',
         'secret_key': u'',
@@ -191,6 +193,9 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
             ]
 
 FileStorageEngine.register(PandaStorage)
+# MonkeyPatch LocalFileStorage to depend on this
+LocalFileStorage.second_to += [PandaStorage]
+
 
 def fake_ids(mf, temp_id, func, *args, **kwargs):
     orig_id = mf.unique_id
