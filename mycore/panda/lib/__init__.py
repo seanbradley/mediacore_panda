@@ -155,6 +155,11 @@ class PandaClient(object):
         url = '/clouds/%s.json' % self.conn.cloud_id
         return self._get_json(url)
 
+    def get_presets(self):
+        """Get the configuration options for the existing encoding presets in this cloud."""
+        url = '/presets.json'
+        return self._get_json(url)
+
     def get_videos(self, status=None):
         """List all videos, filtered by status.
 
@@ -235,6 +240,67 @@ class PandaClient(object):
         """
         url = '/profiles/%s.json' % profile_id
         return self._get_json(url)
+
+    def add_profile(self, title, extname, width, height, command, name=None):
+        """Add a profile using the settings provided.
+
+        :param title: Human-readable name (e.g. "MP4 (H.264) Hi")
+        :type title: str
+
+        :param name: Machine-readable name (e.g. "h264.hi")
+        :type name: str
+
+        :param extname: file extension (including preceding .)
+        :type extname: str
+
+        :param width: Width of the encoded video
+        :type width: int
+
+        :param height: Height of the encoded video
+        :type height: int
+
+        :param command: The command to run the transcoding job.
+                        (e.g. "ffmpeg -i $input_file$ -acodec libfaac -ab 128k -vcodec libx264 -vpre normal $resolution_and_padding$ -y $output_file$")
+                        See http://www.pandastream.com/docs/encoding_profiles
+        :type command: str
+        """
+        data = dict(
+            title = title,
+            extname = extname,
+            width = width,
+            height = height,
+            command = command,
+            name = name
+        )
+        if not name:
+            data.pop('name')
+        return self._post_json('/profiles.json', data)
+
+    def add_profile_from_preset(self, preset_name, name=None, width=None, height=None):
+        """Add a profile based on the provided preset, extending with the settings provided.
+
+        :param preset_name: The name of the preset that will provide the basis for this encoding.
+        :type preset_name: str
+
+        :param name: Machine-readable name (e.g. "h264.hi")
+        :type name: str
+
+        :param width: Width of the encoded video
+        :type width: int
+
+        :param height: Height of the encoded video
+        :type height: int
+        """
+        data = dict(
+            preset_name = preset_name,
+            name = name,
+            width = width,
+            height = height
+        )
+        for x in data:
+            if data[x] == None:
+                data.pop(x)
+        return self._post_json('/profiles.json', data)
 
     def delete_encoding(self, encoding_id):
         """Delete the reference to a particular encoding from the Panda servers.
