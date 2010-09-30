@@ -102,7 +102,7 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
             }
         elif url:
             return RemoteURLStorage.parse(self, url=url)
-        elif file:
+        elif file is not None:
             return LocalFileStorage.parse(self, file=file)
 
     def store(self, media_file, file=None, url=None, meta=None):
@@ -134,7 +134,7 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
             )
         else:
             # Otherwise, use the basic storage engines to handle this file.
-            if file:
+            if file is not None:
                 # XXX: LocalFileStorage allows for the StorgeEngine to override the
                 #      default file save directory. PandaStorage ignores this
                 #      override, and is thus not necessarily compatible with the
