@@ -52,6 +52,7 @@ class PandaForm(StorageForm):
             behaviour as with the @validate decorator.
 
         """
+        StorageForm.save_engine_params(self, engine, **kwargs)
         data = self._flatten_values_from_form(engine._data, kwargs)
         if data['transcoding_enabled']:
             # Only set transcoding_enabled to True if the user has selected it

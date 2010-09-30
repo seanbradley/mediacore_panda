@@ -12,6 +12,8 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
     engine_type = u'PandaStorage'
     """A uniquely identifying unicode string for the StorageEngine."""
 
+    default_name = u'Panda Transcoding & Storage'
+
     settings_form_class = PandaForm
     """Your :class:`mediacore.forms.Form` class for changing :attr:`_data`."""
 
