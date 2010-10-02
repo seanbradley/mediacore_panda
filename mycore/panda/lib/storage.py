@@ -1,13 +1,13 @@
 from simplejson import dumps, loads
 
-from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, RemoteURLStorage, StorageURI, UnsuitableEngineError
+from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
 from mycore.panda.lib import PANDA_URL_PREFIX, TYPES
 from mycore.panda.forms.admin.storage import PandaForm
 from mycore.panda.lib import PandaHelper
 
-class PandaStorage(RemoteURLStorage, LocalFileStorage):
+class PandaStorage(FileStorageEngine):
 
     engine_type = u'PandaStorage'
     """A uniquely identifying unicode string for the StorageEngine."""
@@ -72,38 +72,36 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
         if not self._data['transcoding_enabled']:
             raise UnsuitableEngineError('Panda Transcoding with this Storage Engine is currently disabled.')
 
-        if url and url.startswith(PANDA_URL_PREFIX):
-            offset = len(PANDA_URL_PREFIX)
-            # 'd' is the dict representing a Panda encoding or video
-            # with an extra key: 'display_name'
-            d = loads(url[offset:])
+        if not url or not url.startswith(PANDA_URL_PREFIX):
+            raise UnsuitableEngineError()
 
-            # MediaCore uses extensions without prepended .
-            ext = d['extname'].lstrip('.').lower()
+        offset = len(PANDA_URL_PREFIX)
+        # 'd' is the dict representing a Panda encoding or video
+        # with an extra key: 'display_name'
+        d = loads(url[offset:])
 
-            # XXX: Panda doesn't actually populate these fields yet.
-            ba = d.get('audio_bitrate', None) or 0
-            bv = d.get('video_bitrate', None) or 0
-            bitrate = (ba + bv) or None
+        # MediaCore uses extensions without prepended .
+        ext = d['extname'].lstrip('.').lower()
 
-            return {
-                'panda_id': d['id'],
-                'panda_type': TYPES['video'],
-                'panda_ext': ext,
-                'container': guess_container_format(ext),
-                'display_name': d['display_name'],
-                'type': VIDEO, # only video files get panda encoded, so it's video Q.E.D.
-                'height': d['height'],
-                'width': d['width'],
-                'size': d['file_size'],
-                'bitrate': bitrate,
-                'duration': d['duration'],
-                'thumbnail_url': "%s%s_1.jpg" % (self.base_urls[0][1], d['id']),
-            }
-        elif url:
-            return RemoteURLStorage.parse(self, url=url)
-        elif file is not None:
-            return LocalFileStorage.parse(self, file=file)
+        # XXX: Panda doesn't actually populate these fields yet.
+        ba = d.get('audio_bitrate', None) or 0
+        bv = d.get('video_bitrate', None) or 0
+        bitrate = (ba + bv) or None
+
+        return {
+            'panda_id': d['id'],
+            'panda_type': TYPES['video'],
+            'panda_ext': ext,
+            'container': guess_container_format(ext),
+            'display_name': d['display_name'],
+            'type': VIDEO, # only video files get panda encoded, so it's video Q.E.D.
+            'height': d['height'],
+            'width': d['width'],
+            'size': d['file_size'],
+            'bitrate': bitrate,
+            'duration': d['duration'],
+            'thumbnail_url': "%s%s_1.jpg" % (self.base_urls[0][1], d['id']),
+        }
 
     def store(self, media_file, file=None, url=None, meta=None):
         """Store the given file or URL and return a unique identifier for it.
@@ -120,54 +118,30 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
         :returns: The unique ID string. Return None if not generating it here.
 
         """
-        assert (file, url) != (None, None), "Must provide a file or a url."
         assert media_file.id != None, "Media file must have an ID. Try flushing the DB Session."
 
-        # Try to generate an ID based on the video_id or encoding_id
-        # These IDs are available if the file is part of a transcoding job.
-        # PandaStorage will handle these IDs directly
-        if meta.get('panda_type', None) in (TYPES['video'], TYPES['encoding']):
-            id = dict(
-                type = meta['panda_type'],
-                id = meta['panda_id'],
-                ext = meta['panda_ext'],
-            )
-        else:
-            # Otherwise, use the basic storage engines to handle this file.
-            if file is not None:
-                # XXX: LocalFileStorage allows for the StorgeEngine to override the
-                #      default file save directory. PandaStorage ignores this
-                #      override, and is thus not necessarily compatible with the
-                #      user's default LocalFileStorage instance.
-                file_name = LocalFileStorage.store(self, media_file, file=file, meta=meta)
-                id = dict(
-                    type = TYPES['file'],
-                    id = file_name,
-                )
-            elif url:
-                # XXX: Notice that we don't call RemoteURLStorage.store() here.
-                #      RemoteURLStorage sets the unique_id in the meta dict
-                #      inside RemoteURLStorage.parse().
-                id = dict(
-                    type = TYPES['url'],
-                    id = meta['unique_id'],
-                )
-
-            if meta['type'] == VIDEO:
-                from mediacore.lib.helpers import url_for
-                state_update_url = url_for(
-                    controller='/panda/admin/media',
-                    action='panda_update',
-                    file_id=media_file.id,
-                    qualified=True
-                )
-                profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
-                profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
-                fake_ids(media_file, dumps(id), # FIXME: this is probably a BAD leaky abstraction.
-                         self.panda_helper.transcode_media_file,
-                         media_file, profile_ids, state_update_url=state_update_url)
+        # Generate an ID based on the video_id or encoding_id
+        id = dict(
+            type = meta['panda_type'],
+            id = meta['panda_id'],
+            ext = meta['panda_ext'],
+        )
 
         return dumps(id)
+
+    def transcode(self, media_file):
+        from mediacore.lib.helpers import url_for
+        state_update_url = url_for(
+            controller='/panda/admin/media',
+            action='panda_update',
+            file_id=media_file.id,
+            qualified=True
+        )
+        profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
+        profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
+        # XXX: This method may fail if there is no 'http' uri available
+        #      for the given media_file
+        self.panda_helper.transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
 
     def get_uris(self, media_file):
         """Return a list of URIs from which the stored file can be accessed.
@@ -180,19 +154,10 @@ class PandaStorage(RemoteURLStorage, LocalFileStorage):
         """
         id = loads(media_file.unique_id)
 
-        if id['type'] == TYPES['file']:
-            return fake_ids(media_file, id['id'],
-                            LocalFileStorage.get_uris, self, media_file)
-
-        elif id['type'] == TYPES['url']:
-            return fake_ids(media_file, id['id'],
-                            RemoteURLStorage.get_uris, self, media_file)
-
-        elif id['type'] in (TYPES['video'], TYPES['encoding']):
-            return [
-                StorageURI(media_file, base[0], "%s%s.%s" % (base[1], id['id'], id['ext']))
-                for base in self.base_urls
-            ]
+        return [
+            StorageURI(media_file, base[0], "%s%s.%s" % (base[1], id['id'], id['ext']))
+            for base in self.base_urls
+        ]
 
 FileStorageEngine.register(PandaStorage)
 # MonkeyPatch LocalFileStorage to depend on this
