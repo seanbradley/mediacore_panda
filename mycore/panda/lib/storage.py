@@ -1,5 +1,7 @@
-from simplejson import dumps, loads
+import simplejson
 
+from mediacore.lib.decorators import memoize
+from mediacore.lib.helpers import url_for
 from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
@@ -29,11 +31,9 @@ class PandaStorage(FileStorageEngine):
         'amazon_cloudfront_streaming_domain': u'',
     }
 
-    _panda_helper = None
-
     @property
+    @memoize
     def base_urls(self):
-        # TODO: need to init ph with proper credentials.
         return [
             ('http', 'http://s3.amazonaws.com/%s/' %
                 self.panda_helper.client.get_cloud()['s3_videos_bucket']),
@@ -46,15 +46,13 @@ class PandaStorage(FileStorageEngine):
         ]
 
     @property
+    @memoize
     def panda_helper(self):
-        if self._panda_helper is None:
-            # TODO: initialize this with prope credentials
-            self._panda_helper = PandaHelper(
-                cloud_id = self._data['cloud_id'],
-                access_key = self._data['access_key'],
-                secret_key = self._data['secret_key']
-            )
-        return self._panda_helper
+        return PandaHelper(
+            cloud_id = self._data['cloud_id'],
+            access_key = self._data['access_key'],
+            secret_key = self._data['secret_key'],
+        )
 
     def parse(self, file=None, url=None):
         """Return metadata for the given file or raise an error.
@@ -78,7 +76,7 @@ class PandaStorage(FileStorageEngine):
         offset = len(PANDA_URL_PREFIX)
         # 'd' is the dict representing a Panda encoding or video
         # with an extra key: 'display_name'
-        d = loads(url[offset:])
+        d = simplejson.loads(url[offset:])
 
         # MediaCore uses extensions without prepended .
         ext = d['extname'].lstrip('.').lower()
@@ -127,10 +125,9 @@ class PandaStorage(FileStorageEngine):
             ext = meta['panda_ext'],
         )
 
-        return dumps(id)
+        return simplejson.dumps(id)
 
     def transcode(self, media_file):
-        from mediacore.lib.helpers import url_for
         state_update_url = url_for(
             controller='/panda/admin/media',
             action='panda_update',
@@ -152,7 +149,7 @@ class PandaStorage(FileStorageEngine):
         :returns: All :class:`StorageURI` tuples for this file.
 
         """
-        id = loads(media_file.unique_id)
+        id = simplejson.loads(media_file.unique_id)
 
         return [
             StorageURI(media_file, base[0], "%s%s.%s" % (base[1], id['id'], id['ext']))
@@ -162,11 +159,3 @@ class PandaStorage(FileStorageEngine):
 FileStorageEngine.register(PandaStorage)
 # MonkeyPatch LocalFileStorage to depend on this
 LocalFileStorage.second_to += [PandaStorage]
-
-
-def fake_ids(mf, temp_id, func, *args, **kwargs):
-    orig_id = mf.unique_id
-    mf.unique_id = temp_id
-    result = func(*args, **kwargs)
-    mf.unique_id = orig_id
-    return result

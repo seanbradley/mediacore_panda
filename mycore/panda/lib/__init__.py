@@ -1,12 +1,15 @@
+import logging
+import simplejson
 import urllib
-import panda
-
 from socket import gaierror
-from simplejson import dumps, loads
+
+import panda
+from pylons import request
 
 from mediacore.lib.storage import add_new_media_file
+from mediacore.model.meta import DBSession
+from mediacore.model.media import MediaFilesMeta
 
-import logging
 log = logging.getLogger(__name__)
 
 # Monkeypatch panda.urlescape as per http://github.com/newbamboo/panda_client_python/commit/43e9d613bfe34ae09f2815bf026e5a5f5f0abd0a
@@ -53,7 +56,6 @@ class PandaException(Exception):
     pass
 
 def log_request(request_url, method, query_string_data, body_data, response_data):
-    from pylons import request
     log.debug("MediaCore, from: %s", request.url)
     log.debug("Sent Panda a %s request: %s", method, request_url)
     log.debug("Query String Data: %r", query_string_data)
@@ -67,7 +69,7 @@ class PandaClient(object):
 
     def _get_json(self, url, query_string_data={}):
         # This function is memoized with a custom hashing algorithm for its arguments.
-        hash_tuple = url, ((k, query_string_data[k]) for k in sorted(query_string_data.keys()))
+        hash_tuple = url, frozenset(query_string_data.iteritems())
         if hash_tuple in self.json_cache:
             return self.json_cache[hash_tuple]
 
@@ -77,7 +79,7 @@ class PandaClient(object):
             # Catch socket errors and re-raise them as Panda errors.
             raise PandaException(e)
 
-        obj = loads(json)
+        obj = simplejson.loads(json)
         log_request(url, GET, query_string_data, None, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
@@ -87,7 +89,7 @@ class PandaClient(object):
 
     def _post_json(self, url, post_data={}):
         json = self.conn.post(request_path=url, params=post_data)
-        obj = loads(json)
+        obj = simplejson.loads(json)
         log_request(url, POST, None, post_data, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
@@ -95,7 +97,7 @@ class PandaClient(object):
 
     def _put_json(self, url, put_data={}):
         json = self.conn.put(request_path=url, params=put_data)
-        obj = loads(json)
+        obj = simplejson.loads(json)
         log_request(url, PUT, None, put_data, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
@@ -103,7 +105,7 @@ class PandaClient(object):
 
     def _delete_json(self, url, query_string_data={}):
         json = self.conn.delete(request_path=url, params=query_string_data)
-        obj = loads(json)
+        obj = simplejson.loads(json)
         log_request(url, DELETE, query_string_data, None, obj)
         if 'error' in obj:
             raise PandaException(obj['error'], obj['message'])
@@ -381,8 +383,6 @@ class PandaHelper(object):
         media_file.meta[meta_key] = state
 
     def disassociate_video_id(self, media_file, video_id):
-        from mediacore.model import DBSession
-        from mediacore.model.media import MediaFilesMeta
         # Create a meta_key for this MediaCore::MediaFile -> Panda::Video pairing.
         # This is sort of a perversion of the meta table, but hey, it works.
         meta_key = "%s%s" % (META_VIDEO_PREFIX, video_id)
@@ -487,7 +487,7 @@ class PandaHelper(object):
 
         # For each successful encoding (and the original file), create a new MediaFile
         v['display_name'] = "(%s) %s%s" % ('original', media_file.display_name, v['extname'])
-        url = PANDA_URL_PREFIX + dumps(v)
+        url = PANDA_URL_PREFIX + simplejson.dumps(v)
         new_mf = add_new_media_file(media_file.media, url=url)
         for e in encodings:
             # Panda reports multi-bitrate http streaming encodings as .ts file
@@ -496,7 +496,7 @@ class PandaHelper(object):
                 e['extname'] = '.m3u8'
 
             e['display_name'] = "(%s) %s%s" % (profiles[e['profile_id']], media_file.display_name, e['extname'])
-            url = PANDA_URL_PREFIX + dumps(e)
+            url = PANDA_URL_PREFIX + simplejson.dumps(e)
             new_mf = add_new_media_file(media_file.media, url=url)
 
         self.disassociate_video_id(media_file, v['id'])

@@ -40,7 +40,7 @@ class MediaController(BaseController):
         )
 
     @expose()
-    def panda_update(self, media_id=None, file_id=None, video_id=None):
+    def panda_update(self, media_id=None, file_id=None, video_id=None, **kwargs):
         if file_id:
             media_file = fetch_row(MediaFile, file_id)
             media_files = [media_file]

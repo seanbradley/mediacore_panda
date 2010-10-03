@@ -1,12 +1,7 @@
 import logging
-import simplejson
-
-from paste.deploy.converters import asbool
-from pylons import app_globals
 
 from mediacore.plugin import events
 from mediacore.plugin.events import observes
-from mycore.panda.lib import PandaHelper, PandaException
 from mycore.panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
@@ -21,26 +16,19 @@ def add_routes(mapper):
         action='panda_save')
 
 @observes(events.Admin.MediaController.edit)
-def add_edit_vars(**result):
-    return add_panda_vars(**result)
+def add_panda_vars(**result):
+    result['encoding_dicts'] = encoding_dicts = {}
+    result['video_dicts'] = video_dicts = {}
+    result['profile_names'] = profile_names = {}
 
-def add_panda_vars(media, **result):
-    result['media'] = media
-    result['encoding_dicts'] = {}
-    result['video_dicts'] = {}
-    result['profile_names'] = {}
-    for file in media.files:
+    for file in result['media'].files:
         if isinstance(file.storage, PandaStorage):
-            result['encoding_dicts'][file.id] = \
+            encoding_dicts[file.id] = \
                 file.storage.panda_helper.get_associated_encoding_dicts(file)
-            result['video_dicts'][file.id] = \
+            video_dicts[file.id] = \
                 file.storage.panda_helper.get_associated_video_dicts(file)
-            if not result['profile_names']:
-                result['profile_names'] = \
+            if not profile_names:
+                profile_names = \
                     file.storage.panda_helper.get_profile_ids_names()
+
     return result
-
-from mediacore.lib import players
-from mediacore.lib.helpers import url_for
-
-# Do whatever monkeypatching you need to do.
