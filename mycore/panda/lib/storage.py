@@ -38,7 +38,7 @@ class PandaStorage(FileStorageEngine):
         cloudfront_http = self._data['amazon_cloudfront_download_domain']
         cloudfront_rtmp = self._data['amazon_cloudfront_streaming_domain']
         # TODO: Return a dict or something easier to parse elsewhere
-        urls = [('http', 'http://s3.amazonaws.com/%s/' % s3_bucket)]
+        urls = [('http', 'http://%s.s3.amazonaws.com/' % s3_bucket)]
         if cloudfront_http:
             urls.append(('http', 'http://%s/' % cloudfront_http.strip(' /')))
         else:
