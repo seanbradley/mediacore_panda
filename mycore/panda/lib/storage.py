@@ -132,6 +132,8 @@ class PandaStorage(FileStorageEngine):
         return simplejson.dumps(id)
 
     def transcode(self, media_file):
+        if isinstance(media_file.storage, PandaStorage):
+            return
         state_update_url = url_for(
             controller='/panda/admin/media',
             action='panda_update',
