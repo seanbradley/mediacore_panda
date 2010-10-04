@@ -167,10 +167,7 @@ class PandaStorage(FileStorageEngine):
             if not scheme:
                 continue
             file_uri = '%s.%s' % (id['id'], id['ext'])
-            if scheme == 'rtmp':
-                uri = StorageURI(media_file, scheme, file_uri, base_url)
-            else:
-                uri = StorageURI(media_file, scheme, base_url + file_uri)
+            uri = StorageURI(media_file, scheme, file_uri, base_url)
             uris.append(uri)
         return uris
 
