@@ -488,16 +488,18 @@ class PandaHelper(object):
         profiles = self.get_profile_ids_names()
 
         # For each successful encoding (and the original file), create a new MediaFile
-        v['display_name'] = "(%s) %s%s" % ('original', media_file.display_name, v['extname'])
+        display_name, orig_ext = os.path.splitext(media_file.display_name)
+        v['display_name'] = "(%s) %s%s" % ('original', display_name, v['extname'])
         url = PANDA_URL_PREFIX + simplejson.dumps(v)
         new_mf = add_new_media_file(media_file.media, url=url)
+
         for e in encodings:
             # Panda reports multi-bitrate http streaming encodings as .ts file
             # but the associated playlist is the only thing ipods, etc, can read.
             if e['extname'] == '.ts':
                 e['extname'] = '.m3u8'
 
-            e['display_name'] = "(%s) %s%s" % (profiles[e['profile_id']], media_file.display_name, e['extname'])
+            e['display_name'] = "(%s) %s%s" % (profiles[e['profile_id']].replace('_', ' '), display_name, e['extname'])
             url = PANDA_URL_PREFIX + simplejson.dumps(e)
             new_mf = add_new_media_file(media_file.media, url=url)
 
