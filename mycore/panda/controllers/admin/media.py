@@ -7,6 +7,7 @@ from mediacore.lib.base import BaseController
 from mediacore.lib.decorators import expose
 from mediacore.lib.helpers import redirect
 from mediacore.model import Media, MediaFile, fetch_row
+from mediacore.model.meta import DBSession
 
 from mycore.panda import add_panda_vars
 from mycore.panda.lib import PandaHelper
@@ -50,9 +51,9 @@ class MediaController(BaseController):
             media = fetch_row(Media, media_id)
             media_files = media.files
 
+        storage = DBSession.query(PandaStorage).first()
+
         for media_file in media_files:
-            storage = media_file.storage
-            if isinstance(storage, PandaStorage):
-                storage.panda_helper.video_status_update(media_file, video_id)
+            storage.panda_helper.video_status_update(media_file, video_id)
 
         redirect(controller='/admin/media', action='edit', id=media_id)
