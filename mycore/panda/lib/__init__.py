@@ -6,6 +6,7 @@ from socket import gaierror
 import panda
 from pylons import request
 
+from mediacore.lib.helpers import download_uri
 from mediacore.lib.storage import add_new_media_file
 from mediacore.model.meta import DBSession
 from mediacore.model.media import MediaFilesMeta
@@ -459,9 +460,10 @@ class PandaHelper(object):
             raise PandaException('Could not delete specified encoding.', encoding_id)
 
     def transcode_media_file(self, media_file, profile_ids, state_update_url=None):
-        uris = [u.file_uri for u in media_file.get_uris() if u.scheme == 'http']
-        download_url = uris[0]
-        transcode_details = self.client.transcode_file(download_url, profile_ids, state_update_url)
+        uri = download_uri(media_file)
+        if not uri:
+            raise PandaException('Cannot transcode because no download URL exists.')
+        transcode_details = self.client.transcode_file(str(uri), profile_ids, state_update_url)
         self.associate_video_id(media_file, transcode_details['id'])
 
     def video_status_update(self, media_file, video_id=None):
