@@ -1,7 +1,9 @@
 import logging
 
+from mediacore.model.meta import DBSession
 from mediacore.plugin import events
 from mediacore.plugin.events import observes
+
 from mycore.panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
@@ -19,16 +21,18 @@ def add_routes(mapper):
 def add_panda_vars(**result):
     result['encoding_dicts'] = encoding_dicts = {}
     result['video_dicts'] = video_dicts = {}
-    result['profile_names'] = profile_names = {}
+    result['profile_names'] = {}
+
+    storage = DBSession.query(PandaStorage).first()
+    if not storage:
+        return result
+
+    result['profile_names'] = storage.panda_helper.get_profile_ids_names()
 
     for file in result['media'].files:
-        if isinstance(file.storage, PandaStorage):
-            encoding_dicts[file.id] = \
-                file.storage.panda_helper.get_associated_encoding_dicts(file)
-            video_dicts[file.id] = \
-                file.storage.panda_helper.get_associated_video_dicts(file)
-            if not profile_names:
-                profile_names = \
-                    file.storage.panda_helper.get_profile_ids_names()
+        encoding_dicts[file.id] = \
+            storage.panda_helper.get_associated_encoding_dicts(file)
+        video_dicts[file.id] = \
+            storage.panda_helper.get_associated_video_dicts(file)
 
     return result
