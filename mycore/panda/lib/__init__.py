@@ -482,10 +482,6 @@ class PandaHelper(object):
         if any(e['status'] != 'success' for e in encodings):
             return
 
-        # Set the media's duration based on the video file.
-        if v['duration'] and not media_file.media.duration:
-            media_file.media.duration = v['duration']/1000
-
         profiles = self.get_profile_ids_names()
 
         # For each successful encoding (and the original file), create a new MediaFile
