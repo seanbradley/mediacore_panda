@@ -34,16 +34,20 @@ class PandaStorage(FileStorageEngine):
     @property
     @memoize
     def base_urls(self):
-        return [
-            ('http', 'http://s3.amazonaws.com/%s/' %
-                self.panda_helper.client.get_cloud()['s3_videos_bucket']),
-
-            ('http', 'http://%s/' %
-                self._data['amazon_cloudfront_download_domain'].strip(' /')),
-
-            ('rtmp', 'rtmp://%s/cfx/st/' %
-                self._data['amazon_cloudfront_streaming_domain'].strip(' /')),
-        ]
+        s3_bucket = self.panda_helper.client.get_cloud()['s3_videos_bucket']
+        cloudfront_http = self._data['amazon_cloudfront_download_domain']
+        cloudfront_rtmp = self._data['amazon_cloudfront_streaming_domain']
+        # TODO: Return a dict or something easier to parse elsewhere
+        urls = [('http', 'http://s3.amazonaws.com/%s/' % s3_bucket)]
+        if cloudfront_http:
+            urls.append(('http', 'http://%s/' % cloudfront_http.strip(' /')))
+        else:
+            urls.append((None, None))
+        if cloudfront_rtmp:
+            urls.append(('rtmp', 'rtmp://%s/cfx/st/' % cloudfront_rtmp.strip(' /')))
+        else:
+            urls.append((None, None))
+        return urls
 
     @property
     @memoize
@@ -150,11 +154,24 @@ class PandaStorage(FileStorageEngine):
 
         """
         id = simplejson.loads(media_file.unique_id)
+        base_urls = list(self.base_urls)
 
-        return [
-            StorageURI(media_file, base[0], "%s%s.%s" % (base[1], id['id'], id['ext']))
-            for base in self.base_urls
-        ]
+        # Skip s3 http url if cloudfront http url is available
+        if base_urls[1][0]:
+            base_urls = base_urls[1:]
+
+        uris = []
+        for scheme, base_url in base_urls:
+            if not scheme:
+                continue
+            file_uri = '%s.%s' % (id['id'], id['ext'])
+            if scheme == 'rtmp':
+                uri = StorageURI(media_file, scheme, file_uri, base_url)
+            else:
+                base_file_uri = '%s/%s' % (base_url, file_uri)
+                uri = StorageURI(media_file, scheme, base_file_uri)
+            uris.append(uri)
+        return uris
 
 FileStorageEngine.register(PandaStorage)
 # MonkeyPatch LocalFileStorage to depend on this
