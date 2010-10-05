@@ -444,8 +444,7 @@ class PandaHelper(object):
         e = self.client.get_encoding(encoding_id)
         if e['video_id'] not in video_ids:
             raise PandaException('Specified encoding is not associated with the specified media file. Cannot cancel job.', encoding_id, media_file)
-        self.client.delete_video(e['video_id'])
-        self.disassociate_video_id(media_file, e['video_id'])
+        self.client.delete_encoding(encoding_id)
 
     def retry_transcode(self, media_file, encoding_id):
         # Ensure that the encoding to retry belongs to the given media file.

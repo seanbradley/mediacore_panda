@@ -152,12 +152,12 @@
 				${profile_name} -
 				<py:if test="encoding_failed">
 					Failed at ${progress}% -
-					<a href="${h.url_for(controller='/panda/admin/media', action='panda_retry', file_id=file.id, encoding_id=e['id'])}" class="panda-retry" title="Retry encoding in this format.">Retry</a> -
+					<a href="${h.url_for(controller='/panda/admin/media', action='panda_retry', file_id=file.id, encoding_id=e['id'])}" class="panda-retry" title="Retry encoding in this format">Retry</a> -
 					<!--!<a href="${e['error_log']}">Log</a> - -->
 				</py:if>
 				<py:if test="encoding_started and not encoding_failed">${progress}% -</py:if>
 				<py:if test="not encoding_started and not encoding_failed">Queued...</py:if>
-				<a href="${h.url_for(controller='/panda/admin/media', action='panda_cancel', file_id=file.id, encoding_id=e['id'])}" class="panda-cancel" title="Cancel entire transccoding job.">Cancel</a>
+				<a href="${h.url_for(controller='/panda/admin/media', action='panda_cancel', file_id=file.id, encoding_id=e['id'])}" class="panda-cancel" title="Cancel this encoding job">Cancel</a>
 			</li>
 		</py:for>
 	</ol>
