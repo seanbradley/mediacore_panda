@@ -8,7 +8,7 @@ from mediacore.lib.helpers import merge_dicts
 from mycore.panda.lib import PandaHelper, PandaException
 
 class PandaForm(StorageForm):
-    template = 'mycore.panda.templates.admin.storage'
+    template = 'panda/admin/storage.html'
     fields = StorageForm.fields + [
         boolean_radiobuttonlist('transcoding_enabled', label_text=_('Automatically transcode uploaded videos using Panda')),
         ListFieldSet('panda', suppress_label=True, legend=_('Panda Account Details:'), css_classes=['details_fieldset'], children=[
