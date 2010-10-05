@@ -28,7 +28,8 @@ class MediaController(BaseController):
     @expose('json')
     def panda_cancel(self, file_id, encoding_id, **kwargs):
         media_file = fetch_row(MediaFile, file_id)
-        media_file.storage.panda_helper.cancel_transcode(media_file, encoding_id)
+        storage = DBSession.query(PandaStorage).first()
+        storage.panda_helper.cancel_transcode(media_file, encoding_id)
         return dict(
             success = True,
         )
@@ -37,7 +38,8 @@ class MediaController(BaseController):
     @expose('json')
     def panda_retry(self, file_id, encoding_id, **kwargs):
         media_file = fetch_row(MediaFile, file_id)
-        media_file.storage.panda_helper.retry_transcode(media_file, encoding_id)
+        storage = DBSession.query(PandaStorage).first()
+        storage.panda_helper.retry_transcode(media_file, encoding_id)
         return dict(
             success = True,
         )
