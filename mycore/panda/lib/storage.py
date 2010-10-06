@@ -2,7 +2,7 @@ import simplejson
 
 from mediacore.lib.decorators import memoize
 from mediacore.lib.helpers import url_for
-from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError
+from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError, CannotTranscode
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
 from mycore.panda.lib import PANDA_URL_PREFIX, TYPES
@@ -118,6 +118,8 @@ class PandaStorage(FileStorageEngine):
         """
         if isinstance(media_file.storage, PandaStorage):
             return
+        if media_file.type != VIDEO:
+            raise CannotTranscode
         state_update_url = url_for(
             controller='/panda/admin/media',
             action='panda_update',
