@@ -14,7 +14,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 <div xmlns:py="http://genshi.edgewall.org/" id="panda-status-box" class="box">
-<py:if test="encoding_dicts is not None">
+<py:if test="encoding_dicts">
 	<script type="text/javascript" py:if="include_javascript">
 		var PandaManager = new Class({
 			id: null,
@@ -132,10 +132,7 @@
 	</script>
 	<div class="box-head">
 		<span class="box-head-sec"><a href="#" id="manually-update-panda-status">Manual Sync</a></span>
-		<h1>Panda Encoding</h1>
-	</div>
-	<div class="box-content" py:if="not encoding_dicts">
-		There are no currently encoding files for this Media item.
+		<h1>Encoding</h1>
 	</div>
 	<ol id="file-list" class="file-list" py:if="encoding_dicts">
 		<py:for each="file in media.files" py:if="file.id in encoding_dicts">
@@ -162,12 +159,9 @@
 		</py:for>
 	</ol>
 </py:if>
-<py:if test="encoding_dicts is None">
+<py:if test="not encoding_dicts">
 	<div class="box-head">
-		<h1>Panda Encoding</h1>
-	</div>
-	<div class="box-content" py:if="not encoding_dicts">
-		Panda encoding is currently disabled.
+		<h1>Encoding</h1>
 	</div>
 </py:if>
 </div>
