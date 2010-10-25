@@ -2,6 +2,7 @@ import logging
 import os
 import simplejson
 import urllib
+from pprint import pformat
 from socket import gaierror
 
 import panda
@@ -58,11 +59,12 @@ class PandaException(Exception):
     pass
 
 def log_request(request_url, method, query_string_data, body_data, response_data):
-    log.debug("MediaCore, from: %s", request.url)
-    log.debug("Sent Panda a %s request: %s", method, request_url)
-    log.debug("Query String Data: %r", query_string_data)
-    log.debug("Request Body Data: %r", body_data)
-    log.debug("Received response: %r", response_data)
+    log.debug("Sending Panda a %s request: %s from %s", method, request_url, request.url)
+    if query_string_data:
+        log.debug("Query String Data: %s", pformat(query_string_data))
+    if body_data:
+        log.debug("Request Body Data: %s", pformat(body_data))
+    log.debug("Received response: %s", pformat(response_data))
 
 class PandaClient(object):
     def __init__(self, cloud_id, access_key, secret_key):
