@@ -1,7 +1,7 @@
 import simplejson
 
 from mediacore.lib.decorators import memoize
-from mediacore.lib.helpers import url_for
+from mediacore.lib.helpers import download_uri, url_for
 from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError, CannotTranscode
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
@@ -118,7 +118,7 @@ class PandaStorage(FileStorageEngine):
         """
         if isinstance(media_file.storage, PandaStorage):
             return
-        if media_file.type != VIDEO:
+        if media_file.type != VIDEO or not download_uri(media_file):
             raise CannotTranscode
         state_update_url = url_for(
             controller='/panda/admin/media',
@@ -128,9 +128,10 @@ class PandaStorage(FileStorageEngine):
         )
         profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
         profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
-        # XXX: This method may fail if there is no 'http' uri available
-        #      for the given media_file
-        self.panda_helper.transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
+        try:
+            self.panda_helper.transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
+        except PandaException, e:
+            log.exception(e)
 
     def get_uris(self, media_file):
         """Return a list of URIs from which the stored file can be accessed.
