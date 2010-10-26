@@ -6,6 +6,18 @@ from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageUR
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
 from mycore.panda.lib import PANDA_URL_PREFIX, TYPES
+
+PANDA_ACCESS_KEY = u'panda_access_key'
+PANDA_SECRET_KEY = u'panda_secret_key'
+PANDA_CLOUD_ID = u'panda_cloud_id'
+PANDA_PROFILES = u'panda_profiles'
+PANDA_AUTO_TRANSCODE = u'panda_auto_transcode'
+S3_ACCESS_KEY = u's3_access_key'
+S3_SECRET_KEY = u's3_secret_key'
+S3_BUCKET_NAME = u's3_bucket_name'
+CLOUDFRONT_DOWNLOAD_URI = u'cloudfront_download_uri'
+CLOUDFRONT_STREAMING_URI = u'cloudfront_streaming_uri'
+
 from mycore.panda.forms.admin.storage import PandaForm
 from mycore.panda.lib import PandaHelper
 
@@ -22,21 +34,23 @@ class PandaStorage(FileStorageEngine):
     second_to = []
 
     _default_data = {
-        'access_key': u'',
-        'secret_key': u'',
-        'transcoding_enabled': False,
-        'cloud_id': u'',
-        'encoding_profiles': u'h264',
-        'amazon_cloudfront_download_domain': u'',
-        'amazon_cloudfront_streaming_domain': u'',
+        PANDA_ACCESS_KEY: u'',
+        PANDA_SECRET_KEY: u'',
+        PANDA_CLOUD_ID: u'',
+        PANDA_PROFILES: [],
+        S3_ACCESS_KEY: u'',
+        S3_SECRET_KEY: u'',
+        S3_BUCKET_NAME: u'',
+        CLOUDFRONT_DOWNLOAD_URI: u'',
+        CLOUDFRONT_STREAMING_URI: u'',
     }
 
     @property
     @memoize
     def base_urls(self):
-        s3_bucket = self.panda_helper.client.get_cloud()['s3_videos_bucket']
-        cloudfront_http = self._data['amazon_cloudfront_download_domain']
-        cloudfront_rtmp = self._data['amazon_cloudfront_streaming_domain']
+        s3_bucket = self._data[S3_BUCKET_NAME]
+        cloudfront_http = self._data[CLOUDFRONT_DOWNLOAD_DOMAIN]
+        cloudfront_rtmp = self._data[CLOUDFRONT_STREAMING_DOMAIN]
         # TODO: Return a dict or something easier to parse elsewhere
         urls = [('http', 'http://%s.s3.amazonaws.com/' % s3_bucket)]
         if cloudfront_http:
@@ -52,9 +66,9 @@ class PandaStorage(FileStorageEngine):
     @memoize
     def panda_helper(self):
         return PandaHelper(
-            cloud_id = self._data['cloud_id'],
-            access_key = self._data['access_key'],
-            secret_key = self._data['secret_key'],
+            cloud_id = self._data[PANDA_CLOUD_ID],
+            access_key = self._data[PANDA_ACCESS_KEY],
+            secret_key = self._data[PANDA_SECRET_KEY],
         )
 
     def parse(self, file=None, url=None):
@@ -69,10 +83,6 @@ class PandaStorage(FileStorageEngine):
         :raises UnsuitableEngineError: If file information cannot be parsed.
 
         """
-        assert (file, url) != (None, None), "Must provide a file or a url."
-        if not self._data['transcoding_enabled']:
-            raise UnsuitableEngineError('Panda Transcoding with this Storage Engine is currently disabled.')
-
         if not url or not url.startswith(PANDA_URL_PREFIX):
             raise UnsuitableEngineError()
 
@@ -117,7 +127,10 @@ class PandaStorage(FileStorageEngine):
         """
         if isinstance(media_file.storage, PandaStorage):
             return
-        if media_file.type != VIDEO or not download_uri(media_file):
+        profile_ids = self._data[PANDA_PROFILES]
+        if not profile_ids \
+        or media_file.type != VIDEO \
+        or not download_uri(media_file):
             raise CannotTranscode
         state_update_url = url_for(
             controller='/panda/admin/media',
@@ -125,8 +138,6 @@ class PandaStorage(FileStorageEngine):
             file_id=media_file.id,
             qualified=True
         )
-        profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
-        profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
         try:
             self.panda_helper().transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
         except PandaException, e:
