@@ -49,7 +49,6 @@ class PandaStorage(FileStorageEngine):
             urls.append((None, None))
         return urls
 
-    @property
     @memoize
     def panda_helper(self):
         return PandaHelper(
@@ -129,7 +128,7 @@ class PandaStorage(FileStorageEngine):
         profile_names = [x.strip() for x in self._data['encoding_profiles'].split(',')]
         profile_ids = self.panda_helper.profile_names_to_ids(profile_names)
         try:
-            self.panda_helper.transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
+            self.panda_helper().transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
         except PandaException, e:
             log.exception(e)
 

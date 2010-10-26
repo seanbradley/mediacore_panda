@@ -33,9 +33,9 @@ def add_panda_vars(**result):
 
     for file in media.files:
         encoding_dicts[file.id] = \
-            storage.panda_helper.get_associated_encoding_dicts(file)
+            storage.panda_helper().get_associated_encoding_dicts(file)
         video_dicts[file.id] = \
-            storage.panda_helper.get_associated_video_dicts(file)
+            storage.panda_helper().get_associated_video_dicts(file)
 
     if video_dicts or encoding_dicts:
         result['profile_names'] = storage.panda_helper.get_profile_ids_names()

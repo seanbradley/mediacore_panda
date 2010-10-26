@@ -122,8 +122,8 @@ def add_custom_profiles():
     from mediacore.model import DBSession
     from mycore.panda.lib.storage import PandaStorage
     ps = DBSession.query(PandaStorage).all()[0]
-    profiles = ps.panda_helper.client.get_profiles()
+    profiles = ps.panda_helper().client.get_profiles()
     pnames = [p['name'] for p in profiles]
     for x in custom_profiles:
         if x['name'] not in pnames:
-            ps.panda_helper.client.add_profile_from_preset(**x)
+            ps.panda_helper().client.add_profile_from_preset(**x)

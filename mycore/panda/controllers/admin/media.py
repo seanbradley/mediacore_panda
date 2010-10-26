@@ -29,7 +29,7 @@ class MediaController(BaseController):
     def panda_cancel(self, file_id, encoding_id, **kwargs):
         media_file = fetch_row(MediaFile, file_id)
         storage = DBSession.query(PandaStorage).first()
-        storage.panda_helper.cancel_transcode(media_file, encoding_id)
+        storage.panda_helper().cancel_transcode(media_file, encoding_id)
         return dict(
             success = True,
         )
@@ -39,7 +39,7 @@ class MediaController(BaseController):
     def panda_retry(self, file_id, encoding_id, **kwargs):
         media_file = fetch_row(MediaFile, file_id)
         storage = DBSession.query(PandaStorage).first()
-        storage.panda_helper.retry_transcode(media_file, encoding_id)
+        storage.panda_helper().retry_transcode(media_file, encoding_id)
         return dict(
             success = True,
         )
@@ -56,6 +56,6 @@ class MediaController(BaseController):
         storage = DBSession.query(PandaStorage).first()
 
         for media_file in media_files:
-            storage.panda_helper.video_status_update(media_file, video_id)
+            storage.panda_helper().video_status_update(media_file, video_id)
 
         redirect(controller='/admin/media', action='edit', id=media_id)
