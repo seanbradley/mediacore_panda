@@ -31,7 +31,13 @@ class PandaStorage(FileStorageEngine):
     settings_form_class = PandaForm
     """Your :class:`mediacore.forms.Form` class for changing :attr:`_data`."""
 
-    second_to = []
+    try_before = [LocalFileStorage]
+    """Storage Engines that should :meth:`parse` after this class.
+
+    This is a list of StorageEngine class objects which is used to
+    perform a topological sort of engines. See :func:`sort_engines`
+    and :func:`add_new_media_file`.
+    """
 
     _default_data = {
         PANDA_ACCESS_KEY: u'',
@@ -166,7 +172,3 @@ class PandaStorage(FileStorageEngine):
             uri = StorageURI(media_file, scheme, file_uri, base_url)
             uris.append(uri)
         return uris
-
-FileStorageEngine.register(PandaStorage)
-# MonkeyPatch LocalFileStorage to depend on this
-LocalFileStorage.second_to += [PandaStorage]
