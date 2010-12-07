@@ -4,7 +4,7 @@ from pylons.i18n import N_ as _
 from mediacore.forms import CheckBoxList, ListFieldSet, TextField
 from mediacore.forms.admin.storage import StorageForm
 from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boolean_radiobuttonlist
-from mediacore.lib.helpers import dict_merged_with_defaults
+from mediacore.lib.helpers import merge_dicts
 
 from mycore.panda.lib import PandaHelper, PandaException
 from mycore.panda.lib.storage import (PANDA_ACCESS_KEY, PANDA_SECRET_KEY,
@@ -55,7 +55,11 @@ class PandaForm(StorageForm):
             profiles = None
             cloud = None
 
-        value = dict_merged_with_defaults(value or {}, {
+        if not value:
+            value = {}
+
+        merged_value = {}
+        merge_dicts(merged_value, {
             'panda': {
                 'cloud_id': engine._data[PANDA_CLOUD_ID],
                 'access_key': engine._data[PANDA_ACCESS_KEY],
@@ -69,17 +73,18 @@ class PandaForm(StorageForm):
                 'download_uri': engine._data[CLOUDFRONT_DOWNLOAD_URI],
             },
             'profiles': engine._data[PANDA_PROFILES],
-        })
+        }, value)
 
-        kwargs = dict_merged_with_defaults(kwargs, {
+        merged_kwargs = {}
+        merge_dicts(merged_kwargs, {
             'cloud': cloud,
             'child_args': {
                 'profiles': {'profiles': profiles},
             },
-        })
+        }, kwargs)
 
         # kwargs are vars for the template, value is a dict of values for the form.
-        return StorageForm.display(self, value, **kwargs)
+        return StorageForm.display(self, merged_value, **merged_kwargs)
 
     def save_engine_params(self, engine, panda, s3, cloudfront, profiles, **kwargs):
         """Map validated field values to engine data.
