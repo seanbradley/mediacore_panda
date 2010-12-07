@@ -172,3 +172,5 @@ class PandaStorage(FileStorageEngine):
             uri = StorageURI(media_file, scheme, file_uri, base_url)
             uris.append(uri)
         return uris
+
+FileStorageEngine.register(PandaStorage)
