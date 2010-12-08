@@ -95,6 +95,11 @@ class PandaForm(StorageForm):
             behaviour as with the @validate decorator.
 
         """
+        # The panda client library expects strings.
+        for key in panda:
+            if panda[key] is None:
+                panda[key] = u''
+
         StorageForm.save_engine_params(self, engine, **kwargs)
         engine._data[PANDA_CLOUD_ID] = panda['cloud_id']
         engine._data[PANDA_ACCESS_KEY] = panda['access_key']
