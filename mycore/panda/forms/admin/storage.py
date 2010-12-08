@@ -7,10 +7,9 @@ from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boole
 from mediacore.lib.helpers import merge_dicts
 
 from mycore.panda.lib import PandaHelper, PandaException
-from mycore.panda.lib.storage import (PANDA_ACCESS_KEY, PANDA_SECRET_KEY,
-    PANDA_CLOUD_ID, PANDA_PROFILES, PANDA_AUTO_TRANSCODE,
-    S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME,
-    CLOUDFRONT_DOWNLOAD_URI, CLOUDFRONT_STREAMING_URI)
+from mycore.panda.lib.storage import (CLOUDFRONT_DOWNLOAD_URI,
+    CLOUDFRONT_STREAMING_URI, PANDA_ACCESS_KEY, PANDA_CLOUD_ID, PANDA_PROFILES,
+    PANDA_SECRET_KEY, S3_BUCKET_NAME)
 
 
 class ProfileCheckBoxList(CheckBoxList):
@@ -28,8 +27,6 @@ class PandaForm(StorageForm):
         ]),
         ListFieldSet('s3', suppress_label=True, legend=_('Amazon S3 Details:'), children=[
             TextField('bucket_name', maxlength=255, label_text=_('S3 Bucket Name')),
-#            TextField('access_key', maxlength=255, label_text=_('S3 Access Key')),
-#            TextField('secret_key', maxlength=255, label_text=_('S3 Secret Key')),
         ]),
         ListFieldSet('cloudfront',
             suppress_label=True,
@@ -39,10 +36,7 @@ class PandaForm(StorageForm):
             TextField('streaming_uri', maxlength=255, label_text=_('CloudFront Streaming Domain')),
             TextField('download_uri', maxlength=255, label_text=_('CloudFront Download Domain')),
         ]),
-#        ListFieldSet('encoding', suppress_label=True, legend=_('Encoding Options:'), children=[
         ProfileCheckBoxList('profiles', label_text=_('Encodings to use')),
-#            CheckBox('auto_transcode', label_text=_('Automatically transcode uploaded videos using Panda')),
-#        ]),
     ] + StorageForm.buttons
 
     def display(self, value, **kwargs):

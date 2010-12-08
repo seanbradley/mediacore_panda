@@ -11,9 +11,6 @@ PANDA_ACCESS_KEY = u'panda_access_key'
 PANDA_SECRET_KEY = u'panda_secret_key'
 PANDA_CLOUD_ID = u'panda_cloud_id'
 PANDA_PROFILES = u'panda_profiles'
-PANDA_AUTO_TRANSCODE = u'panda_auto_transcode'
-S3_ACCESS_KEY = u's3_access_key'
-S3_SECRET_KEY = u's3_secret_key'
 S3_BUCKET_NAME = u's3_bucket_name'
 CLOUDFRONT_DOWNLOAD_URI = u'cloudfront_download_uri'
 CLOUDFRONT_STREAMING_URI = u'cloudfront_streaming_uri'
@@ -44,8 +41,6 @@ class PandaStorage(FileStorageEngine):
         PANDA_SECRET_KEY: u'',
         PANDA_CLOUD_ID: u'',
         PANDA_PROFILES: [],
-        S3_ACCESS_KEY: u'',
-        S3_SECRET_KEY: u'',
         S3_BUCKET_NAME: u'',
         CLOUDFRONT_DOWNLOAD_URI: u'',
         CLOUDFRONT_STREAMING_URI: u'',
