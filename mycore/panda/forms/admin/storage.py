@@ -5,6 +5,7 @@ from mediacore.forms import CheckBoxList, ListFieldSet, TextField
 from mediacore.forms.admin.storage import StorageForm
 from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boolean_radiobuttonlist
 from mediacore.lib.helpers import merge_dicts
+from mediacore.model.meta import DBSession
 
 from mycore.panda.lib import PandaHelper, PandaException
 from mycore.panda.lib.storage import (CLOUDFRONT_DOWNLOAD_URI,
@@ -113,6 +114,6 @@ class PandaForm(StorageForm):
         try:
             engine.panda_helper().client.get_cloud()
         except PandaException, e:
+            DBSession.rollback()
             # TODO: Display this error to the user.
-            error, message = e
             raise Invalid(str(e), None, None)
