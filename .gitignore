@@ -1,0 +1,15 @@
+.DS_Store
+.*.swp
+.swp
+.project
+.cache
+.settings
+*.pyc
+*.tmproj
+*.egg-info
+*.egg-info
+dist
+*.egg
+env
+test.ini
+.pydev*
