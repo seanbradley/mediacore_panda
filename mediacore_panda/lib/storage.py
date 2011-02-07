@@ -5,7 +5,7 @@ from mediacore.lib.helpers import download_uri, url_for
 from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError, CannotTranscode
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
 
-from mycore.panda.lib import PANDA_URL_PREFIX, TYPES
+from mediacore_panda.lib import PANDA_URL_PREFIX, TYPES
 
 PANDA_ACCESS_KEY = u'panda_access_key'
 PANDA_SECRET_KEY = u'panda_secret_key'
@@ -15,8 +15,8 @@ S3_BUCKET_NAME = u's3_bucket_name'
 CLOUDFRONT_DOWNLOAD_URI = u'cloudfront_download_uri'
 CLOUDFRONT_STREAMING_URI = u'cloudfront_streaming_uri'
 
-from mycore.panda.forms.admin.storage import PandaForm
-from mycore.panda.lib import PandaHelper
+from mediacore_panda.forms.admin.storage import PandaForm
+from mediacore_panda.lib import PandaHelper
 
 class PandaStorage(FileStorageEngine):
 

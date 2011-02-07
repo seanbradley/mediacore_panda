@@ -9,9 +9,9 @@ from mediacore.lib.helpers import redirect
 from mediacore.model import Media, MediaFile, fetch_row
 from mediacore.model.meta import DBSession
 
-from mycore.panda import add_panda_vars
-from mycore.panda.lib import PandaHelper
-from mycore.panda.lib.storage import PandaStorage
+from mediacore_panda import add_panda_vars
+from mediacore_panda.lib import PandaHelper
+from mediacore_panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
 admin_perms = has_permission('admin')

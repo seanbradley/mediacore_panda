@@ -7,8 +7,8 @@ from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boole
 from mediacore.lib.helpers import merge_dicts
 from mediacore.model.meta import DBSession
 
-from mycore.panda.lib import PandaHelper, PandaException
-from mycore.panda.lib.storage import (CLOUDFRONT_DOWNLOAD_URI,
+from mediacore_panda.lib import PandaHelper, PandaException
+from mediacore_panda.lib.storage import (CLOUDFRONT_DOWNLOAD_URI,
     CLOUDFRONT_STREAMING_URI, PANDA_ACCESS_KEY, PANDA_CLOUD_ID, PANDA_PROFILES,
     PANDA_SECRET_KEY, S3_BUCKET_NAME)
 

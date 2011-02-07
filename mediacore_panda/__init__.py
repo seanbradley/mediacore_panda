@@ -4,7 +4,7 @@ from mediacore.model.meta import DBSession
 from mediacore.plugin import events
 from mediacore.plugin.events import observes
 
-from mycore.panda.lib.storage import PandaStorage
+from mediacore_panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
 

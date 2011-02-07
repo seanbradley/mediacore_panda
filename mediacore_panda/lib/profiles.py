@@ -120,7 +120,7 @@ custom_profiles = [
 def add_custom_profiles():
     # Add all the custom profiles to the first existing PandaStorage instance.
     from mediacore.model import DBSession
-    from mycore.panda.lib.storage import PandaStorage
+    from mediacore_panda.lib.storage import PandaStorage
     ps = DBSession.query(PandaStorage).all()[0]
     profiles = ps.panda_helper().client.get_profiles()
     pnames = [p['name'] for p in profiles]
