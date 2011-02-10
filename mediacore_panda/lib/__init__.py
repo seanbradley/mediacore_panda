@@ -24,7 +24,7 @@ import panda
 from pylons import request
 
 from mediacore.lib.helpers import download_uri
-from mediacore.lib.storage import add_new_media_file
+from mediacore.lib.storage import add_new_url
 from mediacore.model.meta import DBSession
 from mediacore.model.media import MediaFilesMeta
 
@@ -508,7 +508,7 @@ class PandaHelper(object):
         display_name, orig_ext = os.path.splitext(media_file.display_name)
         v['display_name'] = "(%s) %s%s" % ('original', display_name, v['extname'])
         url = PANDA_URL_PREFIX + simplejson.dumps(v)
-        new_mf = add_new_media_file(media_file.media, url=url)
+        new_mf = parse_url(media_file.media, url=url)
 
         for e in encodings:
             # Panda reports multi-bitrate http streaming encodings as .ts file
@@ -518,7 +518,7 @@ class PandaHelper(object):
 
             e['display_name'] = "(%s) %s%s" % (profiles[e['profile_id']].replace('_', ' '), display_name, e['extname'])
             url = PANDA_URL_PREFIX + simplejson.dumps(e)
-            new_mf = add_new_media_file(media_file.media, url=url)
+            new_mf = add_new_url(media_file.media, url)
 
         self.disassociate_video_id(media_file, v['id'])
         # TODO: Now delete the exisitng media_file?
