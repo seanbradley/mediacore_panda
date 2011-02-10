@@ -143,8 +143,8 @@ class PandaStorage(FileStorageEngine):
         """
         if isinstance(media_file.storage, PandaStorage):
             return
-        profile_ids = self._data[PANDA_PROFILES]
-        if not profile_ids \
+        profile_names = self._data[PANDA_PROFILES]
+        if not profile_names \
         or media_file.type != VIDEO \
         or not download_uri(media_file):
             raise CannotTranscode
@@ -155,7 +155,7 @@ class PandaStorage(FileStorageEngine):
             qualified=True
         )
         try:
-            self.panda_helper().transcode_media_file(media_file, profile_ids, state_update_url=state_update_url)
+            self.panda_helper().transcode_media_file(media_file, profile_names, state_update_url=state_update_url)
         except PandaException, e:
             log.exception(e)
 
