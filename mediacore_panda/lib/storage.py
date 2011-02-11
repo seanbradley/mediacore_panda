@@ -14,17 +14,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import simplejson
+from pprint import pformat
 
-from pylons import request
+from formencode import Invalid
 
-from mediacore.lib.decorators import autocommit, memoize
+from mediacore.lib.decorators import memoize
 from mediacore.lib.helpers import download_uri, url_for
-from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError, CannotTranscode
-from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
-from mediacore.model.meta import DBSession
+from mediacore.lib.i18n import N_, _
+from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, CannotTranscode
+from mediacore.lib.filetypes import guess_container_format
+from mediacore.lib.uri import download_uri
+from mediacore.model.media import MediaFile
 
-from mediacore_panda.lib import PANDA_URL_PREFIX, TYPES
+from mediacore_panda.lib import PandaException
 
 PANDA_ACCESS_KEY = u'panda_access_key'
 PANDA_SECRET_KEY = u'panda_secret_key'
@@ -44,7 +46,7 @@ class PandaStorage(FileStorageEngine):
     engine_type = u'PandaStorage'
     """A uniquely identifying unicode string for the StorageEngine."""
 
-    default_name = u'Panda Transcoding & Storage'
+    default_name = N_(u'Panda Transcoding & Storage', domain='mediacore_panda')
 
     settings_form_class = PandaForm
     """Your :class:`mediacore.forms.Form` class for changing :attr:`_data`."""
@@ -93,47 +95,6 @@ class PandaStorage(FileStorageEngine):
             secret_key = self._data[PANDA_SECRET_KEY],
         )
 
-    def parse(self, file=None, url=None):
-        """Return metadata for the given file or raise an error.
-
-        :type file: :class:`cgi.FieldStorage` or None
-        :param file: A freshly uploaded file object.
-        :type url: unicode or None
-        :param url: A remote URL string.
-        :rtype: dict
-        :returns: Any extracted metadata.
-        :raises UnsuitableEngineError: If file information cannot be parsed.
-
-        """
-        if not url or not url.startswith(PANDA_URL_PREFIX):
-            raise UnsuitableEngineError()
-
-        offset = len(PANDA_URL_PREFIX)
-        # 'd' is the dict representing a Panda encoding or video
-        # with an extra key: 'display_name'
-        d = simplejson.loads(url[offset:])
-
-        # MediaCore uses extensions without prepended .
-        ext = d['extname'].lstrip('.').lower()
-
-        # XXX: Panda doesn't actually populate these fields yet.
-        ba = d.get('audio_bitrate', None) or 0
-        bv = d.get('video_bitrate', None) or 0
-        bitrate = (ba + bv) or None
-
-        return {
-            'unique_id': d['id'] + d['extname'],
-            'container': guess_container_format(ext),
-            'display_name': d['display_name'],
-            'type': VIDEO, # only video files get panda encoded, so it's video Q.E.D.
-            'height': d['height'],
-            'width': d['width'],
-            'size': d['file_size'],
-            'bitrate': bitrate,
-            'duration': d['duration'] / 1000.0,
-            'thumbnail_url': "%s%s_1.jpg" % (self.base_urls[0][1], d['id']),
-        }
-
     def transcode(self, media_file):
         """Transcode an existing MediaFile.
 
@@ -147,45 +108,59 @@ class PandaStorage(FileStorageEngine):
         :rtype: NoneType
         :returns: Nothing
         """
+        # We can't transcode our own files.
         if isinstance(media_file.storage, PandaStorage):
             return
 
-        profile_names = self._data[PANDA_PROFILES]
+        download_url = download_uri(media_file)
+        download_url = download_url and str(download_url) or None
 
-        if not profile_names \
-        or media_file.type != VIDEO \
-        or not download_uri(media_file):
-            raise CannotTranscode
+        if not download_url:
+            log.debug('No download url!\n%s', pformat(media_file.get_uris()))
+            raise CannotTranscode()
 
-        panda_helper = self.panda_helper()
         state_update_url = url_for(
             controller='/panda/admin/media',
             action='panda_update',
             file_id=media_file.id,
-            qualified=True
+            qualified=True,
         )
 
-        # We can only tell panda to encode this video once the transaction has
-        # been committed, otherwise panda get's a 404 when they try to download
-        # the file from us.
-        def transcode():
-            try:
-                panda_helper.transcode_media_file(media_file, profile_names,
-                                                  state_update_url=state_update_url)
-            except PandaException, e:
-                log.exception(e)
+        panda_client = self.panda_helper().client
+        response = panda_client.transcode_file(
+            download_url,
+            self._data[PANDA_PROFILES],
+            state_update_url,
+        )
+        log.debug('TRANSCODE DETAILS: \n%s', pformat(response))
 
-        # Ideally we have the @autocommit decorator call the transcode function
-        # after the transaction has been committed normally. This functionality
-        # wasn't added until after the release of v0.9.0 final, so we have an
-        # ugly hack to support that version.
-        if hasattr(request, 'commit_callbacks'):
-            # Use the autocommit decorator to save the changes to the db.
-            autocommitted_transcode = autocommit(transcode)
-            request.commit_callbacks.append(autocommitted_transcode)
-        else:
-            DBSession.commit()
-            transcode()
+        panda_video_id = media_file.meta['panda_video_id'] = response.get('id', '')
+
+        if response['status'] == 'fail':
+            raise Invalid(_('Encoding failed.', domain='mediacore_panda'), None, None)
+
+        profiles = dict((p['id'], p) for p in panda_client.get_profiles())
+        encodings = panda_client.get_encodings(video_id=panda_video_id)
+        encoding_files = []
+
+        for encoding in encodings:
+            log.debug('Encoding:\n %s', pformat(encoding))
+
+            profile = profiles[encoding['profile_id']]
+            extname = encoding['extname']
+            if extname:
+                extname = extname.lstrip('.').lower()
+
+            file = MediaFile()
+            file.container = guess_container_format(extname)
+            file.display_name = '%s (%s)' \
+                % (media_file.display_name, profile['name'])
+            file.meta['panda_video_id'] = panda_video_id
+            file.meta['panda_encoding_id'] = encoding['id']
+
+            encoding_files.append(file)
+
+        return encoding_files
 
     def get_uris(self, media_file):
         """Return a list of URIs from which the stored file can be accessed.
@@ -210,5 +185,26 @@ class PandaStorage(FileStorageEngine):
             uri = StorageURI(media_file, scheme, file_uri, base_url)
             uris.append(uri)
         return uris
+
+    def delete(self, media_file):
+        """Delete the stored file represented by the given unique ID.
+
+        :type media_file: :class:`~mediacore.model.media.MediaFile`
+        :param media_file: The associated media file object.
+        :rtype: boolean
+        :returns: True if successful, False if an error occurred.
+
+        """
+        encoding_id = media_file.meta.get('panda_encoding_id', None)
+        if not encoding_id:
+            log.debug('No encoding ID to delete. Huh??! %r', media_file)
+            return False
+
+        try:
+            return self.panda_helper().client.delete_encoding(encoding_id)
+        except PandaException, e:
+            log.debug('Delete encoding exception occurred:\n%s', e)
+            return False
+
 
 FileStorageEngine.register(PandaStorage)

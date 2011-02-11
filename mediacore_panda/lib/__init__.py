@@ -322,14 +322,14 @@ class PandaClient(object):
         url = '/profiles/%s.json' % profile_id
         return self._delete_json(url)['deleted']
 
-    def transcode_file(self, file_or_source_url, profile_ids, state_update_url=None):
+    def transcode_file(self, file_or_source_url, profiles, state_update_url=None):
         """Upload or mark a video file for transcoding.
 
         :param file_or_source_url: A file object or url to transfer to Panda
         :type file_or_source_url: A file-like object or str
 
-        :param profile_ids: List of profile IDs to encode the video with.
-        :type profile_ids: list of str
+        :param profiles: List of profile IDs or names to encode the video with.
+        :type profiles: list of str
 
         :param state_update_url: URL for Panda to send a notification to when
                                  encoding is complete. See docs for details
@@ -339,7 +339,7 @@ class PandaClient(object):
         :returns: a dict representing the newly created video object
         :rtype: dict
         """
-        if not profile_ids:
+        if not profiles:
             raise Exception('Must provide at least one profile ID.')
 
         if not isinstance(file_or_source_url, basestring):
@@ -347,7 +347,7 @@ class PandaClient(object):
 
         data = {
             'source_url': file_or_source_url,
-            'profiles': ','.join(profile_ids),
+            'profiles': ','.join(profiles),
         }
         if state_update_url:
             data['state_update_url'] = state_update_url
@@ -508,7 +508,7 @@ class PandaHelper(object):
         display_name, orig_ext = os.path.splitext(media_file.display_name)
         v['display_name'] = "(%s) %s%s" % ('original', display_name, v['extname'])
         url = PANDA_URL_PREFIX + simplejson.dumps(v)
-        new_mf = parse_url(media_file.media, url=url)
+        new_mf = add_new_url(media_file.media, url=url)
 
         for e in encodings:
             # Panda reports multi-bitrate http streaming encodings as .ts file
