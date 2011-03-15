@@ -38,6 +38,6 @@ def add_panda_vars(**result):
             storage.panda_helper().get_associated_video_dicts(file)
 
     if video_dicts or encoding_dicts:
-        result['profile_names'] = storage.panda_helper.get_profile_ids_names()
+        result['profile_names'] = storage.panda_helper().get_profile_ids_names()
 
     return result
