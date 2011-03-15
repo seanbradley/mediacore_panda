@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import simplejson
 
 from mediacore.lib.decorators import memoize
@@ -32,6 +33,8 @@ CLOUDFRONT_STREAMING_URI = u'cloudfront_streaming_uri'
 
 from mediacore_panda.forms.admin.storage import PandaForm
 from mediacore_panda.lib import PandaHelper
+
+log = logging.getLogger(__name__)
 
 class PandaStorage(FileStorageEngine):
 
