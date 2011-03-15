@@ -68,7 +68,11 @@ def log_request(request_url, method, query_string_data, body_data, response_data
 
 class PandaClient(object):
     def __init__(self, cloud_id, access_key, secret_key):
-        self.conn = panda.Panda(cloud_id, access_key, secret_key)
+        self.conn = panda.Panda(
+            cloud_id.encode('utf-8'),
+            access_key.encode('utf-8'),
+            secret_key.encode('utf-8'),
+        )
         self.json_cache = {}
 
     def _get_json(self, url, query_string_data={}):
