@@ -40,9 +40,7 @@ class PandaForm(StorageForm):
         ProfileCheckBoxList('profiles', label_text=_('Encodings to use')),
     ] + StorageForm.buttons
 
-    def display(self, value, **kwargs):
-        engine = kwargs['engine']
-
+    def display(self, value, engine, **kwargs):
         try:
             profiles = engine.panda_helper().client.get_profiles()
             cloud = engine.panda_helper().client.get_cloud()
@@ -79,7 +77,7 @@ class PandaForm(StorageForm):
         }, kwargs)
 
         # kwargs are vars for the template, value is a dict of values for the form.
-        return StorageForm.display(self, merged_value, **merged_kwargs)
+        return StorageForm.display(self, merged_value, engine, **merged_kwargs)
 
     def save_engine_params(self, engine, panda, s3, cloudfront, profiles, **kwargs):
         """Map validated field values to engine data.
