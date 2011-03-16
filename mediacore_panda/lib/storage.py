@@ -68,8 +68,8 @@ class PandaStorage(FileStorageEngine):
     @memoize
     def base_urls(self):
         s3_bucket = self._data[S3_BUCKET_NAME]
-        cloudfront_http = self._data[CLOUDFRONT_DOWNLOAD_DOMAIN]
-        cloudfront_rtmp = self._data[CLOUDFRONT_STREAMING_DOMAIN]
+        cloudfront_http = self._data[CLOUDFRONT_DOWNLOAD_URI]
+        cloudfront_rtmp = self._data[CLOUDFRONT_STREAMING_URI]
         # TODO: Return a dict or something easier to parse elsewhere
         urls = [('http', 'http://%s.s3.amazonaws.com/' % s3_bucket)]
         if cloudfront_http:
