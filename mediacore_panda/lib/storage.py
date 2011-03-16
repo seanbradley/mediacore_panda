@@ -16,10 +16,13 @@
 import logging
 import simplejson
 
-from mediacore.lib.decorators import memoize
+from pylons import request
+
+from mediacore.lib.decorators import autocommit, memoize
 from mediacore.lib.helpers import download_uri, url_for
 from mediacore.lib.storage import FileStorageEngine, LocalFileStorage, StorageURI, UnsuitableEngineError, CannotTranscode
 from mediacore.lib.filetypes import guess_container_format, guess_media_type, VIDEO
+from mediacore.model.meta import DBSession
 
 from mediacore_panda.lib import PANDA_URL_PREFIX, TYPES
 
@@ -146,21 +149,43 @@ class PandaStorage(FileStorageEngine):
         """
         if isinstance(media_file.storage, PandaStorage):
             return
+
         profile_names = self._data[PANDA_PROFILES]
+
         if not profile_names \
         or media_file.type != VIDEO \
         or not download_uri(media_file):
             raise CannotTranscode
+
+        panda_helper = self.panda_helper()
         state_update_url = url_for(
             controller='/panda/admin/media',
             action='panda_update',
             file_id=media_file.id,
             qualified=True
         )
-        try:
-            self.panda_helper().transcode_media_file(media_file, profile_names, state_update_url=state_update_url)
-        except PandaException, e:
-            log.exception(e)
+
+        # We can only tell panda to encode this video once the transaction has
+        # been committed, otherwise panda get's a 404 when they try to download
+        # the file from us.
+        def transcode():
+            try:
+                panda_helper.transcode_media_file(media_file, profile_names,
+                                                  state_update_url=state_update_url)
+            except PandaException, e:
+                log.exception(e)
+
+        # Ideally we have the @autocommit decorator call the transcode function
+        # after the transaction has been committed normally. This functionality
+        # wasn't added until after the release of v0.9.0 final, so we have an
+        # ugly hack to support that version.
+        if hasattr(request, 'commit_callbacks'):
+            # Use the autocommit decorator to save the changes to the db.
+            autocommitted_transcode = autocommit(transcode)
+            request.commit_callbacks.append(autocommitted_transcode)
+        else:
+            DBSession.commit()
+            transcode()
 
     def get_uris(self, media_file):
         """Return a list of URIs from which the stored file can be accessed.
