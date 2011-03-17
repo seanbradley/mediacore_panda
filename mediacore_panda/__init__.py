@@ -38,6 +38,7 @@ def add_panda_vars(**result):
     result['encoding_dicts'] = encoding_dicts = {}
     result['video_dicts'] = video_dicts = {}
     result['profile_names'] = {}
+    result['display_panda_refresh_message'] = False
 
     if not media.files:
         return result

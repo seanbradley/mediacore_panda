@@ -14,7 +14,6 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 <div xmlns:py="http://genshi.edgewall.org/" id="panda-status-box" class="box">
-<py:if test="encoding_dicts">
 	<script type="text/javascript" py:if="include_javascript">
 		var PandaManager = new Class({
 			id: null,
@@ -40,53 +39,60 @@
 				this.check_for_completed_link_id = opts.check_for_completed_link_id;
 				this.mediaMgr = opts.mediaMgr;
 				this.fileMgr = opts.fileMgr;
-				// Initialize all ID related activities
-				if (opts.id != null) {
-					this.set_id(opts.id);
-				}
-				this.mediaMgr.addEvent('initMedia', this.set_id.bind(this));
-				// Initialize any retry links for failed encodings
-				this.setup_ajax_links();
-			},
-			set_id: function(id) {
-				// Set the ID and ID components of URLs
-				this.id = id;
-				this.status_url = this.status_url.replace('__ID__', id)
-				this.update_url = this.update_url.replace('__ID__', id)
-				// Set up our AJAX request objects
-				this.requests['refresh'] = new Request.HTML({
-					url: this.status_url,
-					link: 'ignore',
-					onSuccess: function(responseTree, responseElements, responseHTML, responseJavaScript) {
-						// Replace the current status box with the newly fetched one.
-						var old_el = $(this.status_element_id);
-						var new_el = Elements.from(responseHTML)[0];
-						new_el.replaces(old_el);
-						this.setup_ajax_links();
-					}.bind(this)
-				});
-				// Set the status box to refresh every 30 seconds, and when a file is added
-				this.fileMgr.addEvent('fileAdded', this.requests['refresh'].send.bind(this.requests['refresh']));
-				this.requests['refresh'].send.periodical(30000, this.requests['refresh']);
-				this.requests['refresh'].send()
+
 				// Set up the 'check for completed' manager
 				this.confirmCheckMgr = new ConfirmMgr({
 					header: 'Confirm Check',
 					msg: 'This action will check for any completed Panda encoding jobs for this media item. Any changes you have made to the left-hand form since you last clicked "Save" will be lost. Do you want to continue?'
 				});
 				this.confirmCheckMgr.addEvent('onConfirm', function(){window.location = this.update_url;}.bind(this));
-			},
-			refresh_on_success: function(obj) {
-				// onSuccess method for JSON AJAX requests. If request successful, refresh status box.
-				if (obj['success']) {
-					if (this.requests['refresh'] != null) {
-						// XXX: This check should really not be necessary, because
-						//      this is only a callback that will be issued if the
-						//      request object is initialized.
-						this.requests['refresh'].send();
-					}
+				$(this.check_for_completed_link_id).style.display = 'none';
+
+				// Initialize all ID related activities
+				if (opts.id != null) {
+					this.set_id(opts.id);
+				}
+				// Set the status box to refresh every 30 seconds, and when a file is added
+				this.fileMgr.addEvent('fileAdded', this.start_refreshing.bind(this));
+				this.mediaMgr.addEvent('initMedia', this.set_id.bind(this));
+
+				// Initialize any retry links for failed encodings and the manual sync link
+				this.setup_ajax_links();
+
+				if ($$$$('#panda-file-list li').length) {
+					this.start_refreshing.delay(30000, this);
 				}
 			},
+			set_id: function(id) {
+				// Set the ID and ID components of URLs
+				this.id = id;
+				this.status_url = this.status_url.replace('__ID__', id);
+				this.update_url = this.update_url.replace('__ID__', id);
+				// Set up our AJAX request objects
+				this.requests['refresh'] = new Request.HTML({
+					url: this.status_url,
+					link: 'ignore',
+					onSuccess: this.on_refresh_success.bind(this)
+				});
+				$(this.check_for_completed_link_id).style.display = 'inline';
+			},
+
+			start_refreshing: function() {
+				this.requests['refresh'].send();
+			},
+			on_refresh_success: function(responseTree, responseElements, responseHTML, responseJavaScript) {
+				// Replace the current status box with the newly fetched one.
+				var old_el = $(this.status_element_id);
+				var new_el = Elements.from(responseHTML)[0];
+				new_el.replaces(old_el);
+				this.setup_ajax_links();
+				// Check for the message that indicates that all encodings have completed
+				if (responseHTML.indexOf('id="panda-user-refresh-msg"') == -1) {
+					// Refresh in 30 seconds
+					this.requests['refresh'].send.delay(30000, this.requests['refresh']);
+				}
+			},
+
 			send_ajax_request: function(e) {
 				// onClick action for retry and cancel links.
 				var e = new Event(e); e.stop();
@@ -94,9 +100,20 @@
 				target.setStyle('display', 'none');
 				var r_retry = new Request.JSON({
 					url: target.get('href'),
-					onSuccess: this.refresh_on_success.bind(this)
+					onSuccess: this.on_ajax_success.bind(this)
 				});
 				r_retry.send();
+			},
+			on_ajax_success: function(obj) {
+				// onSuccess method for JSON AJAX requests. If request successful, refresh status box.
+				if (obj['success']) {
+					if (this.requests['refresh']) {
+						// XXX: This check should really not be necessary, because
+						//      this is only a callback that will be issued if the
+						//      request object is initialized.
+						this.requests['refresh'].send();
+					}
+				}
 			},
 			setup_ajax_links: function() {
 				// Initialize any retry links for failed encodings
@@ -131,10 +148,15 @@
 		});
 	</script>
 	<div class="box-head">
-		<span class="box-head-sec"><a href="#" id="manually-update-panda-status">Manual Sync</a></span>
+		<span class="box-head-sec"><a href="#" id="manually-update-panda-status">Refresh</a></span>
 		<h1>Encoding</h1>
 	</div>
-	<ol id="file-list" class="file-list" py:if="encoding_dicts">
+	<py:if test="display_panda_refresh_message">
+		<div class="box-content center" id="panda-user-refresh-msg">
+			Please refresh the page to see the completed encodings.
+		</div>
+	</py:if>
+	<ol id="panda-file-list" class="file-list" py:if="encoding_dicts and not display_panda_refresh_message">
 		<py:for each="file in media.files" py:if="file.id in encoding_dicts">
 			<li py:for="e_id, e in encoding_dicts[file.id].iteritems()" class="${file.type}" id="panda-file-${file.id}">
 				<?python
@@ -158,10 +180,4 @@
 			</li>
 		</py:for>
 	</ol>
-</py:if>
-<py:if test="not encoding_dicts">
-	<div class="box-head">
-		<h1>Encoding</h1>
-	</div>
-</py:if>
 </div>

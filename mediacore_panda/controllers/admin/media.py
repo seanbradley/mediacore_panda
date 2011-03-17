@@ -37,7 +37,13 @@ class MediaController(BaseController):
     def panda_status(self, id, **kwargs):
         media = fetch_row(Media, id)
         result = {'media': media, 'include_javascript': False}
-        return add_panda_vars(**result)
+        result = add_panda_vars(**result)
+
+        encoding_dicts = result['encoding_dicts']
+        result['display_panda_refresh_message'] = \
+            not any(encoding_dicts.get(file.id) for file in media.files)
+
+        return result
 
     @ActionProtector(admin_perms)
     @expose('json')
