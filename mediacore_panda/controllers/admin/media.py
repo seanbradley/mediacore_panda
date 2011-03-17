@@ -29,7 +29,7 @@ from mediacore_panda.lib import PandaHelper
 from mediacore_panda.lib.storage import PandaStorage
 
 log = logging.getLogger(__name__)
-admin_perms = has_permission('admin')
+admin_perms = has_permission('edit')
 
 class MediaController(BaseController):
     @ActionProtector(admin_perms)
