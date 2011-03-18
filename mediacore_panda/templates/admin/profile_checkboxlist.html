@@ -15,8 +15,10 @@
 -->
 <div xmlns="http://www.w3.org/1999/xhtml"
      xmlns:py="http://genshi.edgewall.org/"
+     xmlns:i18n="http://genshi.edgewall.org/i18n"
      py:strip=""
-     py:choose="">
+     py:choose=""
+     i18n:domain="mediacore_panda">
 	<py:when test="profiles is None">MediaCore is not connected to your Panda cloud, so we can't fetch your encoding profiles. Try saving the form and refreshing this page.</py:when>
 	<py:when test="not profiles">Your Panda cloud has no configured profiles.</py:when>
 	<table py:otherwise=""

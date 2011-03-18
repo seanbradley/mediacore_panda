@@ -29,5 +29,11 @@ setup(
     entry_points = '''
         [mediacore.plugin]
         panda=mediacore_panda
-    '''
+    ''',
+    message_extractors = {'mediacore_panda': [
+        ('**.py', 'python', None),
+        ('templates/**.html', 'genshi', {'template_class': 'genshi.template.markup:MarkupTemplate'}),
+        ('public/**', 'ignore', None),
+        ('tests/**', 'ignore', None),
+    ]},
 )

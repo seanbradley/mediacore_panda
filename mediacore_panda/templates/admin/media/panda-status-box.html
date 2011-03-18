@@ -13,7 +13,11 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
-<div xmlns:py="http://genshi.edgewall.org/" id="panda-status-box" class="box">
+<div xmlns:py="http://genshi.edgewall.org/"
+     xmlns:i18n="http://genshi.edgewall.org/i18n"
+     i18n:domain="mediacore_panda"
+     id="panda-status-box"
+     class="box">
 	<script type="text/javascript" py:if="include_javascript">
 		var PandaManager = new Class({
 			id: null,
@@ -42,8 +46,10 @@
 
 				// Set up the 'check for completed' manager
 				this.confirmCheckMgr = new ConfirmMgr({
-					header: 'Confirm Check',
-					msg: 'This action will check for any completed Panda encoding jobs for this media item. Any changes you have made to the left-hand form since you last clicked "Save" will be lost. Do you want to continue?'
+					header: '${_('Confirm Check', domain='mediacore_panda').replace("'", "\\'")}',
+					msg: '${_('This action will check for any completed Panda encoding jobs for this media item. Any changes you have made to the left-hand form since you last clicked "Save" will be lost. Do you want to continue?', domain='mediacore_panda').replace("'", "\\'")}'
+					confirmButtonText: '${_('Yes', domain='mediacore').replace("'", "\\'")}',
+					cancelButtonText: '${_('No', domain='mediacore').replace("'", "\\'")}'
 				});
 				this.confirmCheckMgr.addEvent('onConfirm', function(){window.location = this.update_url;}.bind(this));
 				$(this.check_for_completed_link_id).style.display = 'none';

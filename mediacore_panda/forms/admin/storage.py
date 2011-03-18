@@ -14,12 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from formencode import Invalid
-from pylons.i18n import N_ as _
 
 from mediacore.forms import CheckBoxList, ListFieldSet, TextField
 from mediacore.forms.admin.storage import StorageForm
 from mediacore.forms.admin.settings import real_boolean_radiobuttonlist as boolean_radiobuttonlist
 from mediacore.lib.helpers import merge_dicts
+from mediacore.lib.i18n import N_
 from mediacore.model.meta import DBSession
 
 from mediacore_panda.lib import PandaHelper, PandaException
@@ -36,23 +36,23 @@ class ProfileCheckBoxList(CheckBoxList):
 class PandaForm(StorageForm):
     template = 'panda/admin/storage.html'
     fields = StorageForm.fields + [
-        ListFieldSet('panda', suppress_label=True, legend=_('Panda Account Details:'), children=[
-            TextField('cloud_id', maxlength=255, label_text=_('Cloud ID')),
-            TextField('access_key', maxlength=255, label_text=_('Access Key')),
-            TextField('secret_key', maxlength=255, label_text=_('Secret Key')),
+        ListFieldSet('panda', suppress_label=True, legend=N_('Panda Account Details:', domain='mediacore_panda'), children=[
+            TextField('cloud_id', maxlength=255, label_text=N_('Cloud ID', domain='mediacore_panda')),
+            TextField('access_key', maxlength=255, label_text=N_('Access Key', domain='mediacore_panda')),
+            TextField('secret_key', maxlength=255, label_text=N_('Secret Key', domain='mediacore_panda')),
         ]),
-        ListFieldSet('s3', suppress_label=True, legend=_('Amazon S3 Details:'), children=[
-            TextField('bucket_name', maxlength=255, label_text=_('S3 Bucket Name')),
+        ListFieldSet('s3', suppress_label=True, legend=N_('Amazon S3 Details:', domain='mediacore_panda'), children=[
+            TextField('bucket_name', maxlength=255, label_text=N_('S3 Bucket Name', domain='mediacore_panda')),
         ]),
         ListFieldSet('cloudfront',
             suppress_label=True,
-            legend=_('Amazon CloudFront Domains (e.g. a1b2c3d4e5f6.cloudfront.net):'),
-            help_text=_('If you intend to use CloudFront to serve these files, please ensure that the CloudFront domains you enter below refer to this S3 bucket.'),
+            legend=N_('Amazon CloudFront Domains (e.g. a1b2c3d4e5f6.cloudfront.net):', domain='mediacore_panda'),
+            help_text=N_('If you intend to use CloudFront to serve these files, please ensure that the CloudFront domains you enter below refer to this S3 bucket.', domain='mediacore_panda'),
             children=[
-            TextField('streaming_uri', maxlength=255, label_text=_('CloudFront Streaming Domain')),
-            TextField('download_uri', maxlength=255, label_text=_('CloudFront Download Domain')),
+            TextField('streaming_uri', maxlength=255, label_text=N_('CloudFront Streaming Domain', domain='mediacore_panda')),
+            TextField('download_uri', maxlength=255, label_text=N_('CloudFront Download Domain', domain='mediacore_panda')),
         ]),
-        ProfileCheckBoxList('profiles', label_text=_('Encodings to use')),
+        ProfileCheckBoxList('profiles', label_text=N_('Encodings to use', domain='mediacore_panda')),
     ] + StorageForm.buttons
 
     def display(self, value, engine, **kwargs):
