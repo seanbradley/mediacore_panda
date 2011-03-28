@@ -22,6 +22,7 @@ setup(
     author = 'Anthony Theocharis',
     author_email = 'anthony@simplestation.com',
     description = 'A MediaCore plugin for using the Panda online transcoding service with Amazon S3.',
+    zip_safe = False,
     install_requires = [
         'MediaCore >= 0.9.0b1',
         'simplejson',
