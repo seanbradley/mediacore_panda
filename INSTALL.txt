@@ -1,0 +1,32 @@
+Installation of MediaCore Plugins
+---------------------------------
+
+Please visit http://mediacore.com/plugins/ for the latest list of MediaCore plugins.
+
+ * Download and extract the plugin:
+   You can technically extract a MediaCore plugin to anywhere you like, but we recommend
+   placing it at the same level as your Virtual Environment and your main MediaCore installation.
+
+   A common layout would look like this:
+     /home/user/mediacore_env > Your MediaCore Virtual Environment
+     /home/user/mediacore > The main installation of MediaCore
+
+     In this case, download your desired MediaCore plugin to /home/user and extract it there.
+     Your plugin should now be extracted to /home/user/MediaCore-PluginName-0.9x
+     We will use this layout as the base for the remaining instructions.
+
+ * Activate your MediaCore virtual environment:
+   In order to install your plugin you first need to activate your MediaCore Virtual Environment.
+   If you haven't already done so, run the following commands:
+     - cd /home/user
+     - source mediacore_env/bin/activate
+
+ * Install your plugin!
+   With your MediaCore Virtual Environment activated, you can now activate your plugin:
+     - cd MediaCore-PluginName-0.9x
+     - python setup.py develop
+
+   This will run the setup script for the plugin and install any dependencies for the plugin.
+   When this has been successfully completed, your plugin will be active in MediaCore!
+
+Don't forget to visit our community forum at http://mediacore.com/community/
