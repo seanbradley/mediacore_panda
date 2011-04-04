@@ -82,11 +82,16 @@ def log_request(request_url, method, query_string_data, body_data, response_data
     log.debug("Received response: %s", pformat(response_data))
 
 class PandaClient(object):
-    def __init__(self, cloud_id, access_key, secret_key):
+    def __init__(self, cloud_id, access_key, secret_key, api_host=None):
+        if api_host:
+            api_host = api_host.encode('utf-8')
+        else:
+            api_host = 'api.pandastream.com'
         self.conn = panda.Panda(
             cloud_id.encode('utf-8'),
             access_key.encode('utf-8'),
             secret_key.encode('utf-8'),
+            api_host=api_host,
         )
         self.json_cache = {}
 
@@ -373,8 +378,9 @@ class PandaClient(object):
 
 
 class PandaHelper(object):
-    def __init__(self, cloud_id, access_key, secret_key):
-        self.client = PandaClient(cloud_id, access_key, secret_key)
+    def __init__(self, cloud_id, access_key, secret_key, api_host=None):
+        self.client = PandaClient(cloud_id, access_key, secret_key,
+                                  api_host=api_host)
 
     def profile_names_to_ids(self, names):
         profiles = self.client.get_profiles()

@@ -32,6 +32,7 @@ PANDA_ACCESS_KEY = u'panda_access_key'
 PANDA_SECRET_KEY = u'panda_secret_key'
 PANDA_CLOUD_ID = u'panda_cloud_id'
 PANDA_PROFILES = u'panda_profiles'
+PANDA_API_HOST = u'panda_api_host'
 S3_BUCKET_NAME = u's3_bucket_name'
 CLOUDFRONT_DOWNLOAD_URI = u'cloudfront_download_uri'
 CLOUDFRONT_STREAMING_URI = u'cloudfront_streaming_uri'
@@ -63,6 +64,7 @@ class PandaStorage(FileStorageEngine):
         PANDA_ACCESS_KEY: u'',
         PANDA_SECRET_KEY: u'',
         PANDA_CLOUD_ID: u'',
+        PANDA_API_HOST: u'',
         PANDA_PROFILES: [],
         S3_BUCKET_NAME: u'',
         CLOUDFRONT_DOWNLOAD_URI: u'',
@@ -93,6 +95,7 @@ class PandaStorage(FileStorageEngine):
             cloud_id = self._data[PANDA_CLOUD_ID],
             access_key = self._data[PANDA_ACCESS_KEY],
             secret_key = self._data[PANDA_SECRET_KEY],
+            api_host = self._data.get(PANDA_API_HOST),
         )
 
     def transcode(self, media_file):

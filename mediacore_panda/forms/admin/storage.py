@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from formencode import Invalid
+from tw.forms import SingleSelectField
 
 from mediacore.forms import CheckBoxList, ListFieldSet, TextField
 from mediacore.forms.admin.storage import StorageForm
@@ -25,7 +26,7 @@ from mediacore.model.meta import DBSession
 from mediacore_panda.lib import PandaHelper, PandaException
 from mediacore_panda.lib.storage import (CLOUDFRONT_DOWNLOAD_URI,
     CLOUDFRONT_STREAMING_URI, PANDA_ACCESS_KEY, PANDA_CLOUD_ID, PANDA_PROFILES,
-    PANDA_SECRET_KEY, S3_BUCKET_NAME)
+    PANDA_SECRET_KEY, PANDA_API_HOST, S3_BUCKET_NAME)
 
 
 class ProfileCheckBoxList(CheckBoxList):
@@ -40,6 +41,8 @@ class PandaForm(StorageForm):
             TextField('cloud_id', maxlength=255, label_text=N_('Cloud ID', domain='mediacore_panda')),
             TextField('access_key', maxlength=255, label_text=N_('Access Key', domain='mediacore_panda')),
             TextField('secret_key', maxlength=255, label_text=N_('Secret Key', domain='mediacore_panda')),
+            SingleSelectField('api_host', label_text=N_('API URL', domain='mediacore_panda'),
+                options=('api.pandastream.com', 'api.eu.pandastream.com')),
         ]),
         ListFieldSet('s3', suppress_label=True, legend=N_('Amazon S3 Details:', domain='mediacore_panda'), children=[
             TextField('bucket_name', maxlength=255, label_text=N_('S3 Bucket Name', domain='mediacore_panda')),
@@ -72,6 +75,7 @@ class PandaForm(StorageForm):
                 'cloud_id': engine._data[PANDA_CLOUD_ID],
                 'access_key': engine._data[PANDA_ACCESS_KEY],
                 'secret_key': engine._data[PANDA_SECRET_KEY],
+                'api_host': engine._data.get(PANDA_API_HOST),
             },
             's3': {
                 'bucket_name': engine._data[S3_BUCKET_NAME],
@@ -118,6 +122,7 @@ class PandaForm(StorageForm):
         engine._data[PANDA_CLOUD_ID] = panda['cloud_id']
         engine._data[PANDA_ACCESS_KEY] = panda['access_key']
         engine._data[PANDA_SECRET_KEY] = panda['secret_key']
+        engine._data[PANDA_API_HOST] = panda['api_host']
         engine._data[PANDA_PROFILES] = profiles
         engine._data[S3_BUCKET_NAME] = s3['bucket_name']
         engine._data[CLOUDFRONT_STREAMING_URI] = cloudfront['streaming_uri']
